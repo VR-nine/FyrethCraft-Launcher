@@ -637,6 +637,12 @@ class ProcessBuilder {
                     case 'version_type':
                         val = this.vanillaManifest.type
                         break
+                    case 'clientid':
+                        val = this.authUser.type === 'microsoft' ? '00000000402b5328' : '00000000402b5328' // Microsoft Client ID for Minecraft
+                        break
+                    case 'auth_xuid':
+                        val = this.authUser.type === 'microsoft' ? this.authUser.uuid : ''
+                        break
                 }
                 if(val != null){
                     mcArgs[i] = val

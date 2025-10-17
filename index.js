@@ -43,7 +43,7 @@ function initAutoUpdater(event, data) {
         // Defaults to true if application version contains prerelease components (e.g. 0.12.1-alpha.1)
         // autoUpdater.allowPrerelease = true
     }
-    
+
     if(isDev){
         autoUpdater.autoInstallOnAppQuit = false
         autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml')
@@ -65,7 +65,7 @@ function initAutoUpdater(event, data) {
     })
     autoUpdater.on('error', (err) => {
         event.sender.send('autoUpdateNotification', 'realerror', err)
-    }) 
+    })
 }
 
 // Open channel to listen for update actions.
@@ -216,7 +216,7 @@ ipcMain.on(MSFT_OPCODE.OPEN_LOGOUT, (ipcEvent, uuid, isLastAccount) => {
             ipcEvent.reply(MSFT_OPCODE.REPLY_LOGOUT, MSFT_REPLY_TYPE.SUCCESS, uuid, isLastAccount)
         }
     })
-    
+
     msftLogoutWindow.webContents.on('did-navigate', (_, uri) => {
         if(uri.startsWith('https://login.microsoftonline.com/common/oauth2/v2.0/logoutsession')) {
             msftLogoutSuccess = true
@@ -233,7 +233,7 @@ ipcMain.on(MSFT_OPCODE.OPEN_LOGOUT, (ipcEvent, uuid, isLastAccount) => {
             }, 5000)
         }
     })
-    
+
     msftLogoutWindow.removeMenu()
     msftLogoutWindow.loadURL('https://login.microsoftonline.com/common/oauth2/v2.0/logout')
 })
@@ -301,7 +301,7 @@ function createWindow() {
 }
 
 function createMenu() {
-    
+
     if(process.platform === 'darwin') {
 
         // Extend default included application menu to continue support for quit keyboard shortcut
@@ -407,7 +407,7 @@ app.whenReady().then(() => {
     protocol.registerFileProtocol('app', (request, callback) => {
         const url = request.url.substr(6) // Убираем 'app://'
         const filePath = path.join(__dirname, url)
-        
+
         // Проверяем существование файла
         if (fs.existsSync(filePath)) {
             callback({ path: filePath })
