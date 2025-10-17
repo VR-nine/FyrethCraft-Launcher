@@ -389,18 +389,6 @@ class ProcessBuilder {
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
         args.push('-Djava.library.path=' + tempNativePath)
 
-        // Ely.by: Add authlib-injector for client
-        if(this.authUser.type === 'ely') {
-            const authlibInjectorPath = path.join(__dirname, '..', '..', '..', 'libraries', 'authlib-injector-1.2.6.jar')
-            // Check if authlib-injector.jar exists
-            if(fs.existsSync(authlibInjectorPath)) {
-                args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
-                logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
-            } else {
-                logger.warn('Ely.by: authlib-injector.jar not found at:', authlibInjectorPath)
-                logger.warn('Ely.by: Download it from https://github.com/yushijinhun/authlib-injector/releases')
-            }
-        }
 
         // Main Java Class
         args.push(this.modManifest.mainClass)
@@ -452,18 +440,6 @@ class ProcessBuilder {
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
 
-        // Ely.by: Add authlib-injector for client
-        if(this.authUser.type === 'ely') {
-            const authlibInjectorPath = path.join(__dirname, '..', '..', '..', 'libraries', 'authlib-injector-1.2.6.jar')
-            // Check if authlib-injector.jar exists
-            if(fs.existsSync(authlibInjectorPath)) {
-                args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
-                logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
-            } else {
-                logger.warn('Ely.by: authlib-injector.jar not found at:', authlibInjectorPath)
-                logger.warn('Ely.by: Download it from https://github.com/yushijinhun/authlib-injector/releases')
-            }
-        }
 
         // Main Java Class
         args.push(this.modManifest.mainClass)
