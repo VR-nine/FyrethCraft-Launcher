@@ -98,7 +98,6 @@ ipcMain.on('autoUpdateAction', (event, arg, data) => {
             autoUpdater.quitAndInstall()
             break
         default:
-            console.log('Unknown argument', arg)
             break
     }
 })

@@ -156,14 +156,10 @@ function updateSelectedAccount(authUser){
         if(authUser.uuid != null){
             // Use SkinManager to get correct skin URL
             const avatarContainer = document.getElementById('avatarContainer')
-            console.log('AuthUser:', authUser)
-            console.log('SkinManager available:', !!window.SkinManager)
             if (window.SkinManager) {
-                console.log('Using SkinManager for head display')
                 // Use new method to display only head
                 window.SkinManager.updateHeadInElement(avatarContainer, authUser, 60)
             } else {
-                console.log('Using fallback skin URL')
                 // Fallback to old method
                 document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/body/${authUser.uuid}/right')`
             }
@@ -262,7 +258,6 @@ const refreshServerStatus = async (fade = false) => {
     try {
 
         const servStat = await getServerStatus(47, serv.hostname, serv.port)
-        console.log(servStat)
         pLabel = Lang.queryJS('landing.serverStatus.players')
         pVal = servStat.players.online + '/' + servStat.players.max
 

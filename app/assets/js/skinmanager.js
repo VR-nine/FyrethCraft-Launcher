@@ -24,10 +24,8 @@ async function retryOperation(operation, maxRetries = 3, delay = 15000) {
             return result;
         } catch (error) {
             lastError = error;
-            console.log(`SkinManager: Attempt ${attempt} failed:`, error.message);
             
             if (attempt < maxRetries) {
-                console.log(`SkinManager: Retrying in ${delay / 1000} seconds...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
         }
@@ -48,30 +46,24 @@ async function retryOperation(operation, maxRetries = 3, delay = 15000) {
 
 async function getSkinUrl(account, type = 'head', size = 40) {
     if (!account || !account.uuid) {
-        console.log('SkinManager: No account or UUID provided, using default skin')
         return getDefaultSkinUrl(type, size)
     }
 
-    console.log('SkinManager: Getting skin for account:', account.type, account.uuid, account.username)
 
     switch (account.type) {
         case 'ely':
             // For Ely.by use username instead of UUID
             if (account.username) {
-                console.log('SkinManager: Using Ely.by skin for username:', account.username)
                 const elyUrl = await getElySkinUrlByNickname(account.username, type, size)
                 return elyUrl
             } else {
                 // Fallback to default skin if username is not available
-                console.log('SkinManager: No username for Ely.by account, using default skin')
                 return getDefaultSkinUrl(type, size)
             }
         case 'microsoft':
         case 'mojang':
         default:
-            console.log('SkinManager: Using Mojang/mc-heads skin for UUID:', account.uuid)
             const mojangUrl = getMojangSkinUrl(account.uuid, type, size)
-            console.log('SkinManager: Generated Mojang URL:', mojangUrl)
             return mojangUrl
     }
 }
@@ -115,7 +107,6 @@ async function getElyTexturesInfo(username) {
         }
         
         const data = await response.json()
-        console.log('SkinManager: Ely.by profile info:', data)
         
         // Look for textures property in properties
         if (data.properties && Array.isArray(data.properties)) {
@@ -124,7 +115,6 @@ async function getElyTexturesInfo(username) {
                 try {
                     // Decode base64 value
                     const decodedValue = JSON.parse(atob(texturesProperty.value))
-                    console.log('SkinManager: Decoded textures info:', decodedValue)
                     return decodedValue
                 } catch (decodeError) {
                     throw new Error(`Error decoding textures property: ${decodeError.message}`)
@@ -150,7 +140,6 @@ async function getElyTexturesInfo(username) {
  * @returns {Promise<string>} Skin URL
  */
 async function getElySkinUrlByNickname(nickname, type, size) {
-    console.log('SkinManager: Getting Ely.by skin by nickname:', nickname)
     
     return await retryOperation(async () => {
         // Get textures info directly by nickname
@@ -162,7 +151,6 @@ async function getElySkinUrlByNickname(nickname, type, size) {
         
         // Extract skin URL
         const skinUrl = texturesInfo.textures.SKIN.url
-        console.log('SkinManager: Ely.by skin URL:', skinUrl)
         
         // Return original skin URL directly
         return skinUrl
@@ -210,7 +198,6 @@ async function checkElyByAvailability() {
         })
         return response.ok || response.status === 404 // 404 is also normal for test request
     } catch (error) {
-        console.log('SkinManager: Ely.by API unavailable:', error.message)
         return false
     }
 }
@@ -256,14 +243,12 @@ function createHeadUrl(skinUrl, size = 40) {
  */
 function updateHeadInElement(element, account, size = 40) {
     if (!element) {
-        console.log('SkinManager: No element provided for head update')
         return
     }
     
     // Use retry mechanism for getting skin URL
     retryOperation(async () => {
         const skinUrl = await getSkinUrl(account, 'head', size)
-        console.log('SkinManager: Updating element with head from skin URL:', skinUrl)
         
         // Apply styles based on account type
         if (account.type === 'microsoft') {
@@ -290,16 +275,13 @@ function updateHeadInElement(element, account, size = 40) {
             element.style.backgroundRepeat = 'no-repeat'
         }
         
-        console.log('SkinManager: Applied head style to element')
         
         // Add error handler for fallback
         element.onerror = () => {
-            console.log('SkinManager: Head image failed to load, trying fallback')
             
             // If this is Ely.by skin, try fallback to mc-heads.net
             if (account.type === 'ely') {
                 const fallbackUrl = `https://mc-heads.net/head/${account.uuid}/${size}`
-                console.log('SkinManager: Trying mc-heads.net fallback for head:', fallbackUrl)
                 
                 // mc-heads.net returns ready-to-use head, no cropping needed
                 element.style.backgroundImage = `url('${fallbackUrl}')`
@@ -312,7 +294,6 @@ function updateHeadInElement(element, account, size = 40) {
                 
                 // If fallback also fails, use default skin
                 element.onerror = () => {
-                    console.log('SkinManager: Fallback also failed, using default head')
                     const defaultUrl = getDefaultSkinUrl('head', size)
                     element.style.backgroundImage = `url('${defaultUrl}')`
                     element.style.backgroundSize = 'cover'
@@ -323,7 +304,6 @@ function updateHeadInElement(element, account, size = 40) {
                     element.style.backgroundRepeat = 'no-repeat'
                 }
             } else {
-                console.log('SkinManager: Using default head')
                 const defaultUrl = getDefaultSkinUrl('head', size)
                 element.style.backgroundImage = `url('${defaultUrl}')`
                 element.style.backgroundSize = 'cover'
@@ -375,7 +355,6 @@ function getElySkinUrl(uuid, type, size) {
     
     // To get skin by UUID we need to get nickname first
     // For now use fallback to mc-heads.net
-    console.log('SkinManager: Ely.by skin requested for UUID:', uuid)
     
     switch (type) {
         case 'head':
@@ -412,57 +391,47 @@ function getDefaultSkinUrl(type, size) {
  */
 function updateSkinInElement(element, account, type = 'head', size = 40) {
     if (!element) {
-        console.log('SkinManager: No element provided for skin update')
         return
     }
     
     // Use retry mechanism for getting skin URL
     retryOperation(async () => {
         const skinUrl = await getSkinUrl(account, type, size)
-        console.log('SkinManager: Updating element with skin URL:', skinUrl)
         
         if (element.tagName === 'IMG') {
             element.src = skinUrl
             element.alt = account.displayName || 'Player'
-            console.log('SkinManager: Set img src to:', skinUrl)
             
             // Add error handler for fallback to default skin
             element.onerror = () => {
-                console.log('SkinManager: Image failed to load, trying fallback')
                 
                 // If this is Ely.by skin, try several fallback options
                 if (account.type === 'ely') {
                     // Try mc-heads.net with UUID
                     const fallbackUrl1 = `https://mc-heads.net/head/${account.uuid}/${size}`
-                    console.log('SkinManager: Trying mc-heads.net fallback (UUID):', fallbackUrl1)
                     element.src = fallbackUrl1
                     
                     // If that doesn't work, try mc-heads.net with username
                     element.onerror = () => {
                         if (account.username) {
                             const fallbackUrl2 = `https://mc-heads.net/head/${account.username}/${size}`
-                            console.log('SkinManager: Trying mc-heads.net fallback (username):', fallbackUrl2)
                             element.src = fallbackUrl2
                             
                             // If that doesn't work either, use default skin
                             element.onerror = () => {
-                                console.log('SkinManager: All fallbacks failed, using default skin')
                                 element.src = getDefaultSkinUrl(type, size)
                             }
                         } else {
-                            console.log('SkinManager: No username available, using default skin')
                             element.src = getDefaultSkinUrl(type, size)
                         }
                     }
                 } else {
-                    console.log('SkinManager: Using default skin')
                     element.src = getDefaultSkinUrl(type, size)
                 }
             }
         } else {
             // Set background image
             element.style.backgroundImage = `url('${skinUrl}')`
-            console.log('SkinManager: Set background image to:', skinUrl)
         }
         
         return skinUrl
