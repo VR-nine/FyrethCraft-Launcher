@@ -12,6 +12,32 @@ const ConfigManager            = require('./configmanager')
 
 const logger = LoggerUtil.getLogger('ProcessBuilder')
 
+/**
+ * Get the correct path to a resource file, handling both dev and production environments
+ * @param {string} resourcePath - Path to the resource relative to app root
+ * @returns {string} Full path to the resource
+ */
+function getResourcePath(resourcePath) {
+    // In renderer process, we need to use remote to access app
+    const { app } = require('@electron/remote')
+    const appPath = app.getAppPath()
+
+    // Try different possible locations
+    const possiblePaths = [
+        path.join(appPath, resourcePath), // Dev mode (root/resourcePath)
+        path.join(appPath, 'resources', resourcePath), // Production mode
+        path.join(process.resourcesPath, resourcePath) // Alternative production path
+    ]
+    
+    for(const testPath of possiblePaths) {
+        if(fs.existsSync(testPath)) {
+            return testPath
+        }
+    }
+    
+    return null
+}
+
 
 /**
  * Only forge and fabric are top level mod loaders.
@@ -391,13 +417,15 @@ class ProcessBuilder {
 
         // Ely.by: Add authlib-injector for client
         if(this.authUser.type === 'ely') {
-            const authlibInjectorPath = path.join(__dirname, '..', '..', '..', 'libraries', 'authlib-injector-1.2.6.jar')
-            // Check if authlib-injector.jar exists
-            if(fs.existsSync(authlibInjectorPath)) {
+            const authlibInjectorPath = getResourcePath('libraries/authlib-injector-1.2.6.jar')
+            
+            if(authlibInjectorPath) {
                 args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
                 logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
             } else {
-                logger.warn('Ely.by: authlib-injector.jar not found at:', authlibInjectorPath)
+                logger.warn('Ely.by: authlib-injector.jar not found. Expected locations:')
+                logger.warn('  - libraries/authlib-injector-1.2.6.jar (dev mode)')
+                logger.warn('  - resources/libraries/authlib-injector-1.2.6.jar (production mode)')
                 logger.warn('Ely.by: Download it from https://github.com/yushijinhun/authlib-injector/releases')
             }
         }
@@ -454,13 +482,15 @@ class ProcessBuilder {
 
         // Ely.by: Add authlib-injector for client
         if(this.authUser.type === 'ely') {
-            const authlibInjectorPath = path.join(__dirname, '..', '..', '..', 'libraries', 'authlib-injector-1.2.6.jar')
-            // Check if authlib-injector.jar exists
-            if(fs.existsSync(authlibInjectorPath)) {
+            const authlibInjectorPath = getResourcePath('libraries/authlib-injector-1.2.6.jar')
+            
+            if(authlibInjectorPath) {
                 args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
                 logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
             } else {
-                logger.warn('Ely.by: authlib-injector.jar not found at:', authlibInjectorPath)
+                logger.warn('Ely.by: authlib-injector.jar not found. Expected locations:')
+                logger.warn('  - libraries/authlib-injector-1.2.6.jar (dev mode)')
+                logger.warn('  - resources/libraries/authlib-injector-1.2.6.jar (production mode)')
                 logger.warn('Ely.by: Download it from https://github.com/yushijinhun/authlib-injector/releases')
             }
         }
@@ -545,7 +575,7 @@ class ProcessBuilder {
                             val = this.authUser.accessToken
                             break
                         case 'user_type':
-                            val = this.authUser.type === 'microsoft' ? 'msa' : 'mojang'
+                            val = this.authUser.type === 'microsoft' ? 'msa' : (this.authUser.type === 'ely' ? 'ely' : 'mojang')
                             break
                         case 'version_type':
                             val = this.vanillaManifest.type
@@ -629,7 +659,7 @@ class ProcessBuilder {
                         val = this.authUser.accessToken
                         break
                     case 'user_type':
-                        val = this.authUser.type === 'microsoft' ? 'msa' : 'mojang'
+                        val = this.authUser.type === 'microsoft' ? 'msa' : (this.authUser.type === 'ely' ? 'ely' : 'mojang')
                         break
                     case 'user_properties': // 1.8.9 and below.
                         val = '{}'
