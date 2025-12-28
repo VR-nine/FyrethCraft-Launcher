@@ -1,7 +1,7 @@
 # Custom Language File for Launcher Customizer
 
 [ejs.app]
-title = "VelithCraft MC Launcher"
+title = "FyrethCraft MC Launcher"
 
 [ejs.landing]
 mediaGitHubURL = "https://github.com/j-tap/VR9-HeliosLauncher"
@@ -15,6 +15,6 @@ sourceGithubLink = "https://github.com/j-tap/VR9-HeliosLauncher"
 supportLink = "https://github.com/j-tap/VR9-HeliosLauncher/issues"
 
 [ejs.welcome]
-welcomeHeader = "WELCOME TO VelithCraft"
-welcomeDescription = "VelithCraft is a modded Minecraft server that is hosted on the VelithCraft network. We are a community of players who are dedicated to creating a fun and immersive experience for everyone."
-welcomeDescCTA = "You are just a few clicks away from VelithCraft."
+welcomeHeader = "WELCOME TO FyrethCraft"
+welcomeDescription = "FyrethCraft is a modded Minecraft server that is hosted on the FyrethCraft network. We are a community of players who are dedicated to creating a fun and immersive experience for everyone."
+welcomeDescCTA = "You are just a few clicks away from FyrethCraft."

@@ -1581,7 +1581,7 @@ function populateAboutVersionInformation(){
  */
 function populateReleaseNotes(){
     $.ajax({
-        url: 'https://github.com/VR-nine/VelithCraft-Launcher/releases.atom',
+        url: 'https://github.com/VR-nine/FyrethCraft-Launcher/releases.atom',
         success: (data) => {
             const version = 'v' + remote.app.getVersion()
             const entries = $(data).find('entry')
