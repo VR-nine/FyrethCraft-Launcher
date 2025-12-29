@@ -7,4 +7,3 @@ const SkinManager = require('./assets/js/skinmanager')
 window.SkinManager = SkinManager
 
 // Add debug information
-console.log('SkinManager initialized:', window.SkinManager)

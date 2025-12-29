@@ -24,6 +24,7 @@ async function retryOperation(operation, maxRetries = 3, delay = 15000) {
             return result;
         } catch (error) {
             lastError = error;
+            
             if (attempt < maxRetries) {
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
@@ -55,6 +56,10 @@ async function getSkinUrl(account, type = 'head', size = 40) {
                 const elyUrl = await getElySkinUrlByNickname(account.username, type, size)
                 return elyUrl
             } else {
+<<<<<<< HEAD
+=======
+                // Fallback to default skin if username is not available
+>>>>>>> restore-changes
                 return getDefaultSkinUrl(type, size)
             }
         case 'microsoft':

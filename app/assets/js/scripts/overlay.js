@@ -273,8 +273,9 @@ async function populateServerListings(){
     const servers = distro.servers
     let htmlString = ''
     for(const serv of servers){
+        const iconUrl = serv.rawServer.icon || ''
         htmlString += `<button class="serverListing" servid="${serv.rawServer.id}" ${serv.rawServer.id === giaSel ? 'selected' : ''}>
-            <img class="serverListingImg" src="${serv.rawServer.icon}"/>
+            <img class="serverListingImg" src="${iconUrl}"/>
             <div class="serverListingDetails">
                 <span class="serverListingName">${serv.rawServer.name}</span>
                 <span class="serverListingDescription">${serv.rawServer.description}</span>

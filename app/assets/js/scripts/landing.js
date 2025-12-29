@@ -156,14 +156,10 @@ function updateSelectedAccount(authUser){
         if(authUser.uuid != null){
             // Use SkinManager to get correct skin URL
             const avatarContainer = document.getElementById('avatarContainer')
-            console.log('AuthUser:', authUser)
-            console.log('SkinManager available:', !!window.SkinManager)
             if (window.SkinManager) {
-                console.log('Using SkinManager for head display')
                 // Use new method to display only head
                 window.SkinManager.updateHeadInElement(avatarContainer, authUser, 60)
             } else {
-                console.log('Using fallback skin URL')
                 // Fallback to old method
                 document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/body/${authUser.uuid}/right')`
             }
@@ -252,33 +248,58 @@ const refreshMojangStatuses = async function(){
     document.getElementById('mojang_status_icon').style.color = MojangRestAPI.statusToHex(status)
 }
 
+/**
+ * Converts server status to hex color code.
+ * 
+ * @param {string} status Status string ('online' or 'offline')
+ * @returns {string} Hex color code
+ */
+function serverStatusToHex(status) {
+    const statusColors = {
+        'online': '#4CAF50',  // Green
+        'offline': '#848484'  // Grey (same as default mojang status)
+    }
+    return statusColors[status] || statusColors['offline']
+}
+
 const refreshServerStatus = async (fade = false) => {
     loggerLanding.info('Refreshing Server Status')
     const serv = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
 
     let pLabel = Lang.queryJS('landing.serverStatus.server')
     let pVal = Lang.queryJS('landing.serverStatus.offline')
+    let serverStatus = 'offline'
 
     try {
-
         const servStat = await getServerStatus(47, serv.hostname, serv.port)
-        console.log(servStat)
         pLabel = Lang.queryJS('landing.serverStatus.players')
         pVal = servStat.players.online + '/' + servStat.players.max
-
+        serverStatus = 'online'
     } catch (err) {
         loggerLanding.warn('Unable to refresh server status, assuming offline.')
         loggerLanding.debug(err)
+        serverStatus = 'offline'
     }
+
+    // Update server status indicator color
+    const serverStatusIcon = document.getElementById('server_status_icon')
+    const statusColor = serverStatusToHex(serverStatus)
+
     if(fade){
         $('#server_status_wrapper').fadeOut(250, () => {
             document.getElementById('landingPlayerLabel').innerHTML = pLabel
             document.getElementById('player_count').innerHTML = pVal
+            if (serverStatusIcon) {
+                serverStatusIcon.style.color = statusColor
+            }
             $('#server_status_wrapper').fadeIn(500)
         })
     } else {
         document.getElementById('landingPlayerLabel').innerHTML = pLabel
         document.getElementById('player_count').innerHTML = pVal
+        if (serverStatusIcon) {
+            serverStatusIcon.style.color = statusColor
+        }
     }
     
 }

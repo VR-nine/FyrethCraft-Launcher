@@ -11,9 +11,7 @@ const settingsState = {
 }
 
 function bindSettingsSelect(){
-    console.log('bindSettingsSelect called')
     for(let ele of document.getElementsByClassName('settingsSelectContainer')) {
-        console.log('Found select container:', ele.id)
         const selectedDiv = ele.getElementsByClassName('settingsSelectSelected')[0]
 
         selectedDiv.onclick = (e) => {
@@ -26,7 +24,6 @@ function bindSettingsSelect(){
         // Bind language select options
         const optionsDiv = ele.getElementsByClassName('settingsSelectOptions')[0]
         if(optionsDiv && optionsDiv.id === 'settingsLanguageOptions') {
-            console.log('Binding language select options')
             const options = optionsDiv.getElementsByClassName('settingsSelectOption')
             Array.from(options).forEach(option => {
                 option.addEventListener('click', function(e) {
@@ -34,7 +31,6 @@ function bindSettingsSelect(){
                     const selectedDiv = this.parentNode.previousElementSibling
                     const value = this.getAttribute('data-value')
                     
-                    console.log('Language option clicked:', value)
                     
                     // Update selected text
                     selectedDiv.innerHTML = this.innerHTML
@@ -445,7 +441,6 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
     if (arguments_[0] === MSFT_REPLY_TYPE.ERROR) {
 
         const viewOnClose = arguments_[2]
-        console.log(arguments_)
         switchView(getCurrentView(), viewOnClose, 500, 500, () => {
 
             if(arguments_[1] === MSFT_ERROR.NOT_FINISHED) {
@@ -476,10 +471,6 @@ ipcRenderer.on(MSFT_OPCODE.REPLY_LOGIN, (_, ...arguments_) => {
                 // This is probably if you messed up the app registration with Azure.      
                 let error = queryMap.error // Error might be 'access_denied' ?
                 let errorDesc = queryMap.error_description
-                console.log('Error getting authCode, is Azure application registered correctly?')
-                console.log(error)
-                console.log(errorDesc)
-                console.log('Full query map: ', queryMap)
                 setOverlayContent(
                     error,
                     errorDesc,
@@ -1211,8 +1202,9 @@ async function loadSelectedServerOnModsTab(){
     const serv = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
 
     for(const el of document.getElementsByClassName('settingsSelServContent')) {
+        const iconUrl = serv.rawServer.icon || ''
         el.innerHTML = `
-            <img class="serverListingImg" src="${serv.rawServer.icon}"/>
+            <img class="serverListingImg" src="${iconUrl}"/>
             <div class="serverListingDetails">
                 <span class="serverListingName">${serv.rawServer.name}</span>
                 <span class="serverListingDescription">${serv.rawServer.description}</span>
@@ -1590,7 +1582,7 @@ function populateAboutVersionInformation(){
  */
 function populateReleaseNotes(){
     $.ajax({
-        url: 'https://github.com/VR-nine/VelithCraft-Launcher/releases.atom',
+        url: 'https://github.com/VR-nine/FyrethCraft-Launcher/releases.atom',
         success: (data) => {
             const version = 'v' + remote.app.getVersion()
             const entries = $(data).find('entry')
@@ -1728,7 +1720,6 @@ function handleLanguageChange(language){
     const Lang = require('./assets/js/langloader')
     
     // Log the change for debugging
-    console.log('Language changed to:', language || 'auto-detect')
     
     // Show notification about language change
     const title = Lang.queryJS('settings.language.languageChangedTitle')

@@ -56,7 +56,28 @@ class ElyRestAPI {
                 body: JSON.stringify(requestBody)
             })
 
-            const data = await response.json()
+            let data
+            try {
+                const contentType = response.headers.get('content-type')
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json()
+                } else {
+                    // Если ответ не JSON, создаём объект ошибки из текста ответа
+                    const text = await response.text()
+                    throw new Error(`Non-JSON response: ${text.substring(0, 100)}`)
+                }
+            } catch (parseError) {
+                // Если не удалось распарсить JSON, возвращаем ошибку
+                log.error('Failed to parse response as JSON:', parseError)
+                return {
+                    responseStatus: RestResponseStatus.ERROR,
+                    elyErrorCode: ElyErrorCode.UNKNOWN,
+                    error: {
+                        error: 'ParseError',
+                        errorMessage: `Failed to parse server response: ${parseError.message}`
+                    }
+                }
+            }
 
             if (response.ok) {
                 log.info('Authentication successful')
@@ -179,7 +200,28 @@ class ElyRestAPI {
                 body: JSON.stringify(requestBody)
             })
 
-            const data = await response.json()
+            let data
+            try {
+                const contentType = response.headers.get('content-type')
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json()
+                } else {
+                    // Если ответ не JSON, создаём объект ошибки из текста ответа
+                    const text = await response.text()
+                    throw new Error(`Non-JSON response: ${text.substring(0, 100)}`)
+                }
+            } catch (parseError) {
+                // Если не удалось распарсить JSON, возвращаем ошибку
+                log.error('Failed to parse response as JSON:', parseError)
+                return {
+                    responseStatus: RestResponseStatus.ERROR,
+                    elyErrorCode: ElyErrorCode.UNKNOWN,
+                    error: {
+                        error: 'ParseError',
+                        errorMessage: `Failed to parse server response: ${parseError.message}`
+                    }
+                }
+            }
 
             if (response.ok) {
                 log.info('Token successfully updated')

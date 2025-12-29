@@ -1,13 +1,13 @@
 {
-  "name": "velithcraft-launcher",
+  "name": "fyrethcraft-launcher",
   "version": "0.1.2",
-  "productName": "VelithCraft Launcher",
-  "description": "Modded VelithCraft Minecraft Launcher",
+  "productName": "FyrethCraft Launcher",
+  "description": "Modded FyrethCraft Minecraft Launcher",
   "author": "VR-nine",
   "license": "UNLICENSED",
-  "homepage": "http://velithcraft.online",
+  "homepage": "http://FyrethCraft.net",
   "bugs": {
-    "url": "https://github.com/VR-nine/VelithCraft-Launcher/issues"
+    "url": "https://github.com/VR-nine/FyrethCraft-Launcher/issues"
   },
   "private": true,
   "main": "index.js",
@@ -46,6 +46,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/VR-nine/VelithCraft-Launcher.git"
+    "url": "git+https://github.com/VR-nine/FyrethCraft-Launcher.git"
   }
 }

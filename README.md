@@ -1,6 +1,6 @@
-<p align="center"><img src="./app/assets/images/Seal.png" width="150px" height="150px" alt="VelithCraft"></p>
+<p align="center"><img src="./app/assets/images/Seal.png" width="150px" height="150px" alt="FyrethCraft"></p>
 
-<h1 align="center">VelithCraft Launcher</h1>
+<h1 align="center">FyrethCraft Launcher</h1>
 <h2 align="center"><small>Fork by <a href="https://github.com/dscalzi/HeliosLauncher" target="_blank">Helios Launcher</a></small></h2>
 
 <em><h5 align="center">(formerly Electron Launcher)</h5></em>
@@ -49,18 +49,18 @@ This is not an exhaustive list. Download and install the launcher to gauge all i
 
 ## Downloads
 
-You can download from [GitHub Releases](https://github.com/VR-nine/VelithCraft-Launcher/releases)
+You can download from [GitHub Releases](https://github.com/VR-nine/FyrethCraft-Launcher/releases)
 
 **Supported Platforms**
 
-If you download from the [Releases](https://github.com/VR-nine/VelithCraft-Launcher/releases) tab, select the installer for your system.
+If you download from the [Releases](https://github.com/VR-nine/FyrethCraft-Launcher/releases) tab, select the installer for your system.
 
 | Platform | File |
 | -------- | ---- |
-| Windows x64 | `VelithCraft-Launcher-setup-VERSION.exe` |
-| macOS x64 | `VelithCraft-Launcher-setup-VERSION-x64.dmg` |
-| macOS arm64 | `VelithCraft-Launcher-setup-VERSION-arm64.dmg` |
-| Linux x64 | `VelithCraft-Launcher-setup-VERSION.AppImage` |
+| Windows x64 | `FyrethCraft-Launcher-setup-VERSION.exe` |
+| macOS x64 | `FyrethCraft-Launcher-setup-VERSION-x64.dmg` |
+| macOS arm64 | `FyrethCraft-Launcher-setup-VERSION-arm64.dmg` |
+| Linux x64 | `FyrethCraft-Launcher-setup-VERSION.AppImage` |
 
 ## Console
 
@@ -94,8 +94,8 @@ This section details the setup of a basic developmentment environment.
 **Clone and Install Dependencies**
 
 ```console
-> git clone https://github.com/VR-nine/VelithCraft-Launcher.git
-> cd VelithCraft-Launcher
+> git clone https://github.com/VR-nine/FyrethCraft-Launcher.git
+> cd FyrethCraft-Launcher
 > npm install
 ```
 
@@ -208,5 +208,5 @@ The best way to contact the developers is on Discord.
 [rendererprocess]: https://electronjs.org/docs/tutorial/application-architecture#main-and-renderer-processes 'Renderer Process'
 [chromedebugger]: https://marketplace.visualstudio.com/items?itemName=msjsdiag.debugger-for-chrome 'Debugger for Chrome'
 [discord]: https://discord.gg/7rHYdaAQ 'Discord'
-[wiki]: https://github.com/VR-nine/VelithCraft-Launcher/wiki 'wiki'
+[wiki]: https://github.com/VR-nine/FyrethCraft-Launcher/wiki 'wiki'
 [nebula]: https://github.com/dscalzi/Nebula 'dscalzi/Nebula'
