@@ -2452,7 +2452,7 @@ input:checked + .toggleSwitchSlider:before {
     overflow-y: hidden;
 }
 
-/* Видео фон */
+/* Video background */
 #backgroundVideo {
     position: fixed;
     top: 0;

@@ -14,7 +14,7 @@ const { AZURE_CLIENT_ID, MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR, SHELL_OPCODE 
 const LangLoader                        = require('./app/assets/js/langloader')
 const ConfigManager                     = require('./app/assets/js/configmanager')
 
-// Регистрируем схемы протоколов до готовности приложения
+// Register protocol schemes before app is ready
 protocol.registerSchemesAsPrivileged([
     {
         scheme: 'app',
@@ -401,13 +401,13 @@ function getPlatformIcon(filename){
     return path.join(__dirname, 'app', 'assets', 'images', `${filename}.${ext}`)
 }
 
-// Регистрируем протокол для локальных ресурсов
+// Register protocol for local resources
 app.whenReady().then(() => {
     protocol.registerFileProtocol('app', (request, callback) => {
-        const url = request.url.substr(6) // Убираем 'app://'
+        const url = request.url.substr(6) // Remove 'app://'
         const filePath = path.join(__dirname, url)
 
-        // Проверяем существование файла
+        // Check if file exists
         if (fs.existsSync(filePath)) {
             callback({ path: filePath })
         } else {

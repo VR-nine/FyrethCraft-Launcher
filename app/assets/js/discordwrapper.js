@@ -40,7 +40,7 @@ exports.initRPC = function(genSettings, servSettings, initialDetails = Lang.quer
     client.on('disconnected', () => {
         logger.info('Discord RPC Disconnected')
         isReady = false
-        // Если клиент отключился, помечаем как закрытый
+        // If client disconnected, mark as closed
         if(!isDestroying) {
             client = null
             activity = null
@@ -70,39 +70,39 @@ exports.updateDetails = function(details){
 exports.shutdownRPC = function(){
     if(!client || isDestroying) return
     
-    // Помечаем, что мы в процессе закрытия
+    // Mark that we are in the process of closing
     isDestroying = true
     
-    // Сохраняем ссылку на клиент перед очисткой
+    // Save reference to client before cleanup
     const clientToDestroy = client
     
-    // Сбрасываем флаг готовности сразу, чтобы предотвратить новые вызовы
+    // Reset ready flag immediately to prevent new calls
     isReady = false
     
-    // Очищаем ссылки сразу, чтобы предотвратить новые вызовы методов
+    // Clear references immediately to prevent new method calls
     client = null
     activity = null
     
-    // Попытка очистить активность (может не сработать, если соединение уже закрыто)
+    // Try to clear activity (may not work if connection is already closed)
     clientToDestroy.clearActivity().catch(() => {
-        // Игнорируем ошибки - соединение может быть уже закрыто
+        // Ignore errors - connection may already be closed
     })
     
-    // Закрываем клиент
-    // destroy() может создавать внутренние промисы, которые отклоняются
-    // Оборачиваем в try-catch и обрабатываем промис, если он возвращается
+    // Close the client
+    // destroy() may create internal promises that are rejected
+    // Wrap in try-catch and handle promise if it returns one
     try {
         const destroyResult = clientToDestroy.destroy()
-        // Если destroy() возвращает промис, обрабатываем его
+        // If destroy() returns a promise, handle it
         if(destroyResult && typeof destroyResult.catch === 'function') {
             destroyResult.catch(() => {
-                // Игнорируем ошибки - соединение может быть уже закрыто
+                // Ignore errors - connection may already be closed
             })
         }
     } catch (error) {
-        // Игнорируем синхронные ошибки при закрытии
+        // Ignore synchronous errors during closing
     } finally {
-        // Сбрасываем флаг после попытки закрытия
+        // Reset flag after closing attempt
         isDestroying = false
     }
 }

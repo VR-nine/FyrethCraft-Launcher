@@ -62,12 +62,12 @@ class ElyRestAPI {
                 if (contentType && contentType.includes('application/json')) {
                     data = await response.json()
                 } else {
-                    // Если ответ не JSON, создаём объект ошибки из текста ответа
+                    // If response is not JSON, create error object from response text
                     const text = await response.text()
                     throw new Error(`Non-JSON response: ${text.substring(0, 100)}`)
                 }
             } catch (parseError) {
-                // Если не удалось распарсить JSON, возвращаем ошибку
+                // If failed to parse JSON, return error
                 log.error('Failed to parse response as JSON:', parseError)
                 return {
                     responseStatus: RestResponseStatus.ERROR,
@@ -206,12 +206,12 @@ class ElyRestAPI {
                 if (contentType && contentType.includes('application/json')) {
                     data = await response.json()
                 } else {
-                    // Если ответ не JSON, создаём объект ошибки из текста ответа
+                    // If response is not JSON, create error object from response text
                     const text = await response.text()
                     throw new Error(`Non-JSON response: ${text.substring(0, 100)}`)
                 }
             } catch (parseError) {
-                // Если не удалось распарсить JSON, возвращаем ошибку
+                // If failed to parse JSON, return error
                 log.error('Failed to parse response as JSON:', parseError)
                 return {
                     responseStatus: RestResponseStatus.ERROR,

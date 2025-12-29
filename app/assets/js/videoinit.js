@@ -1,10 +1,10 @@
-// Инициализация видеофона для Electron
+// Initialize video background for Electron
 document.addEventListener('DOMContentLoaded', function() {
     const video = document.getElementById('backgroundVideo');
     if (video) {
-        // Принудительно запускаем видео
+        // Force video playback
         video.play().catch(function(error) {
-            // Попробуем запустить после взаимодействия пользователя
+            // Try to play after user interaction
             document.addEventListener('click', function() {
                 video.play().catch(function(err) {
                 });
