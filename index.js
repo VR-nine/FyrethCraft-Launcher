@@ -263,7 +263,7 @@ function createWindow() {
     // Allow loading external resources for skins and servers
     win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
         const url = details.url
-        if (url.includes('skinsystem.ely.by') || url.includes('mc-heads.net') || url.includes('authserver.ely.by') || url.includes('textures.minecraft.net') || url.includes('helios-files.geekcorner.eu.org') || url.includes('github.com') || url.includes('ely.by')) {
+        if (url.includes('skinsystem.ely.by') || url.includes('mc-heads.net') || url.includes('authserver.ely.by') || url.includes('textures.minecraft.net') || url.includes('helios-files.geekcorner.eu.org') || url.includes('github.com') || url.includes('ely.by') || url.includes('fyrethcraft.net')) {
             callback({ cancel: false })
         } else {
             callback({})

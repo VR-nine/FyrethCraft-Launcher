@@ -69,7 +69,31 @@ async function showMainUI(data){
     refreshServerStatus()
     setTimeout(() => {
         document.getElementById('frameBar').style.backgroundColor = 'rgba(0, 0, 0, 0.5)'
-        document.body.style.backgroundImage = `url('assets/images/backgrounds/${document.body.getAttribute('bkid')}.jpg')`
+        
+        // Try to load background with .png or .jpg extension
+        const bkid = document.body.getAttribute('bkid')
+        const pngPath = `assets/images/backgrounds/${bkid}.png`
+        const jpgPath = `assets/images/backgrounds/${bkid}.jpg`
+        
+        // Try PNG first, then JPG if PNG doesn't exist
+        const img = new Image()
+        img.onload = () => {
+            document.body.style.backgroundImage = `url('${img.src}')`
+        }
+        img.onerror = () => {
+            // If PNG failed, try JPG
+            const jpgImg = new Image()
+            jpgImg.onload = () => {
+                document.body.style.backgroundImage = `url('${jpgPath}')`
+            }
+            jpgImg.onerror = () => {
+                // Fallback to JPG even if it fails (for compatibility)
+                document.body.style.backgroundImage = `url('${jpgPath}')`
+            }
+            jpgImg.src = jpgPath
+        }
+        img.src = pngPath
+        
         $('#main').show()
 
         const isLoggedIn = Object.keys(ConfigManager.getAuthAccounts()).length > 0

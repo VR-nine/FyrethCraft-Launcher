@@ -3213,7 +3213,16 @@ input:checked + .toggleSwitchSlider:before {
 /* Maintains maximum width on the status bar. */
 #server_status_wrapper {
     display: inline-flex;
-    width: 75px;
+    width: 100px;
+}
+
+/* Icon which displays the status of the server. */
+#server_status_icon {
+    font-size: 30px;
+    color: #848484;
+    margin-left: 15px;
+    font-family: 'sans-serif';
+    transition: color 0.25s ease;
 }
 
 /* Span which displays the player count of the selected server. */
