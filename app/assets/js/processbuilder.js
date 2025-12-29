@@ -70,7 +70,7 @@ class ProcessBuilder {
     /**
      * Convienence method to run the functions typically used to build a process.
      */
-    build(){
+    async build(){
         fs.ensureDirSync(this.gameDir)
         const tempNativePath = path.join(os.tmpdir(), ConfigManager.getTempNativeFolder(), crypto.pseudoRandomBytes(16).toString('hex'))
         process.throwDeprecation = true
@@ -90,7 +90,7 @@ class ProcessBuilder {
         }
         
         const uberModArr = modObj.fMods.concat(modObj.lMods)
-        let args = this.constructJVMArguments(uberModArr, tempNativePath)
+        let args = await this.constructJVMArguments(uberModArr, tempNativePath)
 
         if(mcVersionAtLeast('1.13', this.server.rawServer.minecraftVersion)){
             //args = args.concat(this.constructModArguments(modObj.fMods))
@@ -379,13 +379,13 @@ class ProcessBuilder {
      * 
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
-     * @returns {Array.<string>} An array containing the full JVM arguments for this process.
+     * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    constructJVMArguments(mods, tempNativePath){
+    async constructJVMArguments(mods, tempNativePath){
         if(mcVersionAtLeast('1.13', this.server.rawServer.minecraftVersion)){
-            return this._constructJVMArguments113(mods, tempNativePath)
+            return await this._constructJVMArguments113(mods, tempNativePath)
         } else {
-            return this._constructJVMArguments112(mods, tempNativePath)
+            return await this._constructJVMArguments112(mods, tempNativePath)
         }
     }
 
@@ -395,15 +395,16 @@ class ProcessBuilder {
      * 
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
-     * @returns {Array.<string>} An array containing the full JVM arguments for this process.
+     * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    _constructJVMArguments112(mods, tempNativePath){
+    async _constructJVMArguments112(mods, tempNativePath){
 
         let args = []
 
         // Classpath Argument
         args.push('-cp')
-        args.push(this.classpathArg(mods, tempNativePath).join(ProcessBuilder.getClasspathSeparator()))
+        const cpArgs = await this.classpathArg(mods, tempNativePath)
+        args.push(cpArgs.join(ProcessBuilder.getClasspathSeparator()))
 
         // Java Arguments
         if(process.platform === 'darwin'){
@@ -447,9 +448,9 @@ class ProcessBuilder {
      * 
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
-     * @returns {Array.<string>} An array containing the full JVM arguments for this process.
+     * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    _constructJVMArguments113(mods, tempNativePath){
+    async _constructJVMArguments113(mods, tempNativePath){
 
         const argDiscovery = /\${*(.*)}/
 
@@ -500,6 +501,9 @@ class ProcessBuilder {
 
         // Vanilla Arguments
         args = args.concat(this.vanillaManifest.arguments.game)
+
+        // Pre-resolve classpath as it's needed in the argument processing loop
+        const classpathStr = (await this.classpathArg(mods, tempNativePath)).join(ProcessBuilder.getClasspathSeparator())
 
         for(let i=0; i<args.length; i++){
             if(typeof args[i] === 'object' && args[i].rules != null){
@@ -596,7 +600,7 @@ class ProcessBuilder {
                             val = args[i].replace(argDiscovery, this.launcherVersion)
                             break
                         case 'classpath':
-                            val = this.classpathArg(mods, tempNativePath).join(ProcessBuilder.getClasspathSeparator())
+                            val = classpathStr
                             break
                     }
                     if(val != null){
@@ -741,9 +745,9 @@ class ProcessBuilder {
      * 
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
-     * @returns {Array.<string>} An array containing the paths of each library required by this process.
+     * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the paths of each library required by this process.
      */
-    classpathArg(mods, tempNativePath){
+    async classpathArg(mods, tempNativePath){
         let cpArgs = []
 
         if(!mcVersionAtLeast('1.17', this.server.rawServer.minecraftVersion) || this.usingFabricLoader) {
@@ -759,7 +763,7 @@ class ProcessBuilder {
         }
 
         // Resolve the Mojang declared libraries.
-        const mojangLibs = this._resolveMojangLibraries(tempNativePath)
+        const mojangLibs = await this._resolveMojangLibraries(tempNativePath)
 
         // Resolve the server declared libraries.
         const servLibs = this._resolveServerLibraries(mods)
@@ -782,11 +786,12 @@ class ProcessBuilder {
      * TODO - clean up function
      * 
      * @param {string} tempNativePath The path to store the native libraries.
-     * @returns {{[id: string]: string}} An object containing the paths of each library mojang declares.
+     * @returns {Promise<{[id: string]: string}>} A promise that resolves to an object containing the paths of each library mojang declares.
      */
-    _resolveMojangLibraries(tempNativePath){
+    async _resolveMojangLibraries(tempNativePath){
         const nativesRegex = /.+:natives-([^-]+)(?:-(.+))?/
         const libs = {}
+        const extractPromises = []
 
         const libArr = this.vanillaManifest.libraries
         fs.ensureDirSync(tempNativePath)
@@ -821,11 +826,13 @@ class ProcessBuilder {
 
                         // Extract the file.
                         if(!shouldExclude){
-                            fs.writeFile(path.join(tempNativePath, fileName), zipEntries[i].getData(), (err) => {
-                                if(err){
+                            const filePath = path.join(tempNativePath, fileName)
+                            const fileData = zipEntries[i].getData()
+                            extractPromises.push(
+                                fs.promises.writeFile(filePath, fileData).catch(err => {
                                     logger.error('Error while extracting native library:', err)
-                                }
-                            })
+                                })
+                            )
                         }
 
                     }
@@ -872,11 +879,13 @@ class ProcessBuilder {
 
                         // Extract the file.
                         if(!shouldExclude){
-                            fs.writeFile(path.join(tempNativePath, extractName), zipEntries[i].getData(), (err) => {
-                                if(err){
+                            const filePath = path.join(tempNativePath, extractName)
+                            const fileData = zipEntries[i].getData()
+                            extractPromises.push(
+                                fs.promises.writeFile(filePath, fileData).catch(err => {
                                     logger.error('Error while extracting native library:', err)
-                                }
-                            })
+                                })
+                            )
                         }
 
                     }
@@ -890,6 +899,12 @@ class ProcessBuilder {
                     libs[versionIndependentId] = to
                 }
             }
+        }
+
+        // Wait for all native library extractions to complete
+        // This ensures all files are extracted before the process is launched
+        if(extractPromises.length > 0){
+            await Promise.all(extractPromises)
         }
 
         return libs

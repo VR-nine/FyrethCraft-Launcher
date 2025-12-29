@@ -644,7 +644,7 @@ async function dlAsync(login = true) {
 
         try {
             // Build Minecraft process.
-            proc = pb.build()
+            proc = await pb.build()
 
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)
