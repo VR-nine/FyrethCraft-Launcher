@@ -271,7 +271,7 @@ function updateHeadInElement(element, account, size = 40) {
             element.style.imageRendering = 'pixelated'
             element.style.backgroundRepeat = 'no-repeat'
         } else {
-            // Default style (for mc-heads.net fallback)
+            // Default style
             element.style.backgroundImage = `url('${url}')`
             element.style.backgroundSize = 'cover'
             element.style.backgroundPosition = 'center'
@@ -302,21 +302,8 @@ function updateHeadInElement(element, account, size = 40) {
             // Image loaded successfully, apply styles
             applyStyles(skinUrl, account.type === 'microsoft', account.type !== 'microsoft')
         } catch (loadError) {
-            console.warn('SkinManager: Primary skin URL failed to load, trying fallback:', loadError)
-            
-            // Try fallback for Ely.by accounts
-            if (account.type === 'ely' && account.uuid) {
-                const fallbackUrl = `https://mc-heads.net/head/${account.uuid}/${size}`
-                try {
-                    await checkImageLoad(fallbackUrl)
-                    applyStyles(fallbackUrl, false, false)
-                } catch (fallbackError) {
-                    console.warn('SkinManager: Fallback URL also failed, using default skin')
-                    throw fallbackError
-                }
-            } else {
-                throw loadError
-            }
+            console.warn('SkinManager: Primary skin URL failed to load, using default skin:', loadError)
+            throw loadError
         }
         
         return skinUrl
@@ -392,29 +379,7 @@ function updateSkinInElement(element, account, type = 'head', size = 40) {
             
             // Add error handler for fallback to default skin
             element.onerror = () => {
-                // If this is Ely.by skin, try several fallback options
-                if (account.type === 'ely') {
-                    // Try mc-heads.net with UUID
-                    const fallbackUrl1 = `https://mc-heads.net/head/${account.uuid}/${size}`
-                    element.src = fallbackUrl1
-                    
-                    // If that doesn't work, try mc-heads.net with username
-                    element.onerror = () => {
-                        if (account.username) {
-                            const fallbackUrl2 = `https://mc-heads.net/head/${account.username}/${size}`
-                            element.src = fallbackUrl2
-                            
-                            // If that doesn't work either, use default skin
-                            element.onerror = () => {
-                                element.src = getDefaultSkinUrl(type, size)
-                            }
-                        } else {
-                            element.src = getDefaultSkinUrl(type, size)
-                        }
-                    }
-                } else {
-                    element.src = getDefaultSkinUrl(type, size)
-                }
+                element.src = getDefaultSkinUrl(type, size)
             }
         } else {
             // Set background image
