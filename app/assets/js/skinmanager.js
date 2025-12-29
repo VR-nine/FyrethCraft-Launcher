@@ -56,10 +56,7 @@ async function getSkinUrl(account, type = 'head', size = 40) {
                 const elyUrl = await getElySkinUrlByNickname(account.username, type, size)
                 return elyUrl
             } else {
-<<<<<<< HEAD
-=======
                 // Fallback to default skin if username is not available
->>>>>>> restore-changes
                 return getDefaultSkinUrl(type, size)
             }
         case 'microsoft':
@@ -102,6 +99,7 @@ function getMojangSkinUrl(uuid, type, size) {
 async function getElyTexturesInfo(username) {
     return await retryOperation(async () => {
         // Use simple endpoint skinsystem.ely.by
+        // Note: skinsystem.ely.by doesn't support HTTPS, must use HTTP
         const response = await fetch(`http://skinsystem.ely.by/profile/${username}`)
         
         if (!response.ok) {
@@ -248,14 +246,11 @@ function updateHeadInElement(element, account, size = 40) {
         return
     }
     
-    // Use retry mechanism for getting skin URL
-    retryOperation(async () => {
-        const skinUrl = await getSkinUrl(account, 'head', size)
-        
-        // Apply styles based on account type
-        if (account.type === 'microsoft') {
+    // Helper function to apply styles to element
+    const applyStyles = (url, isMicrosoft = false, useCropping = false) => {
+        if (isMicrosoft) {
             // Microsoft returns ready-to-use avatar, no cropping needed
-            element.style.backgroundImage = `url('${skinUrl}')`
+            element.style.backgroundImage = `url('${url}')`
             element.style.backgroundSize = 'cover'
             element.style.backgroundPosition = 'center'
             element.style.width = `${size}px`
@@ -263,60 +258,64 @@ function updateHeadInElement(element, account, size = 40) {
             element.style.imageRendering = 'pixelated'
             element.style.backgroundRepeat = 'no-repeat'
             element.style.transform = 'scaleX(-1)'
-        } else {
+        } else if (useCropping) {
             // Ely.by and others return full skin texture, need cropping
             const backgroundSize = size * 8
             const backgroundPosition = -size
             
-            element.style.backgroundImage = `url('${skinUrl}')`
+            element.style.backgroundImage = `url('${url}')`
             element.style.backgroundSize = `${backgroundSize}px ${backgroundSize}px`
             element.style.backgroundPosition = `${backgroundPosition}px ${backgroundPosition}px`
             element.style.width = `${size}px`
             element.style.height = `${size}px`
             element.style.imageRendering = 'pixelated'
             element.style.backgroundRepeat = 'no-repeat'
+        } else {
+            // Default style (for mc-heads.net fallback)
+            element.style.backgroundImage = `url('${url}')`
+            element.style.backgroundSize = 'cover'
+            element.style.backgroundPosition = 'center'
+            element.style.width = `${size}px`
+            element.style.height = `${size}px`
+            element.style.imageRendering = 'pixelated'
+            element.style.backgroundRepeat = 'no-repeat'
         }
+    }
+    
+    // Helper function to check if image loads successfully
+    const checkImageLoad = (url) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image()
+            img.onload = () => resolve(true)
+            img.onerror = () => reject(new Error(`Failed to load image: ${url}`))
+            img.src = url
+        })
+    }
+    
+    // Use retry mechanism for getting skin URL
+    retryOperation(async () => {
+        const skinUrl = await getSkinUrl(account, 'head', size)
         
-        // Add error handler for fallback
-        element.onerror = () => {
-            // If this is Ely.by skin, try fallback to mc-heads.net
-            if (account.type === 'ely') {
+        // Check if image loads before applying
+        try {
+            await checkImageLoad(skinUrl)
+            // Image loaded successfully, apply styles
+            applyStyles(skinUrl, account.type === 'microsoft', account.type !== 'microsoft')
+        } catch (loadError) {
+            console.warn('SkinManager: Primary skin URL failed to load, trying fallback:', loadError)
+            
+            // Try fallback for Ely.by accounts
+            if (account.type === 'ely' && account.uuid) {
                 const fallbackUrl = `https://mc-heads.net/head/${account.uuid}/${size}`
-                
-                // mc-heads.net returns ready-to-use head, no cropping needed
-                element.style.backgroundImage = `url('${fallbackUrl}')`
-                element.style.backgroundSize = 'cover'
-                element.style.backgroundPosition = 'center'
-                element.style.width = `${size}px`
-                element.style.height = `${size}px`
-                element.style.imageRendering = 'pixelated'
-                element.style.backgroundRepeat = 'no-repeat'
-                
-                // If fallback also fails, use default skin
-                element.onerror = () => {
-                    const defaultUrl = getDefaultSkinUrl('head', size)
-                    element.style.backgroundImage = `url('${defaultUrl}')`
-                    element.style.backgroundSize = 'cover'
-                    element.style.backgroundPosition = 'center'
-                    element.style.width = `${size}px`
-                    element.style.height = `${size}px`
-                    element.style.imageRendering = 'pixelated'
-                    element.style.backgroundRepeat = 'no-repeat'
+                try {
+                    await checkImageLoad(fallbackUrl)
+                    applyStyles(fallbackUrl, false, false)
+                } catch (fallbackError) {
+                    console.warn('SkinManager: Fallback URL also failed, using default skin')
+                    throw fallbackError
                 }
             } else {
-                const defaultUrl = getDefaultSkinUrl('head', size)
-                element.style.backgroundImage = `url('${defaultUrl}')`
-                element.style.backgroundSize = 'cover'
-                element.style.backgroundPosition = 'center'
-                element.style.width = `${size}px`
-                element.style.height = `${size}px`
-                element.style.imageRendering = 'pixelated'
-                element.style.backgroundRepeat = 'no-repeat'
-                
-                // Отзеркалить для Microsoft аккаунтов
-                if (account.type === 'microsoft') {
-                    element.style.transform = 'scaleX(-1)'
-                }
+                throw loadError
             }
         }
         
@@ -325,18 +324,7 @@ function updateHeadInElement(element, account, size = 40) {
         console.error('SkinManager: Error getting skin URL after retries:', error)
         // In case of error use default skin
         const defaultUrl = getDefaultSkinUrl('head', size)
-        element.style.backgroundImage = `url('${defaultUrl}')`
-        element.style.backgroundSize = 'cover'
-        element.style.backgroundPosition = 'center'
-        element.style.width = `${size}px`
-        element.style.height = `${size}px`
-        element.style.imageRendering = 'pixelated'
-        element.style.backgroundRepeat = 'no-repeat'
-        
-        // Отзеркалить для Microsoft аккаунтов
-        if (account.type === 'microsoft') {
-            element.style.transform = 'scaleX(-1)'
-        }
+        applyStyles(defaultUrl, account.type === 'microsoft', false)
     })
 }
 
@@ -350,7 +338,7 @@ function updateHeadInElement(element, account, size = 40) {
  */
 function getElySkinUrl(uuid, type, size) {
     // Ely.by uses skin system on skinsystem.ely.by
-    // URL format: http://skinsystem.ely.by/skins/{nickname}.png
+    // URL format: https://skinsystem.ely.by/skins/{nickname}.png
     // But we need nickname, not UUID
     
     // To get skin by UUID we need to get nickname first
