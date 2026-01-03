@@ -28,23 +28,23 @@ function getResourcePath(resourcePath) {
         path.join(appPath, 'resources', resourcePath), // Production mode
         path.join(process.resourcesPath, resourcePath) // Alternative production path
     ]
-    
+
     for(const testPath of possiblePaths) {
         if(fs.existsSync(testPath)) {
             return testPath
         }
     }
-    
+
     return null
 }
 
 
 /**
  * Only forge and fabric are top level mod loaders.
- * 
+ *
  * Forge 1.13+ launch logic is similar to fabrics, for now using usingFabricLoader flag to
  * change minor details when needed.
- * 
+ *
  * Rewrite of this module may be needed in the future.
  */
 class ProcessBuilder {
@@ -66,7 +66,7 @@ class ProcessBuilder {
         this.usingFabricLoader = false
         this.llPath = null
     }
-    
+
     /**
      * Convienence method to run the functions typically used to build a process.
      */
@@ -79,7 +79,7 @@ class ProcessBuilder {
         this.usingFabricLoader = this.server.modules.some(mdl => mdl.rawModule.type === Type.Fabric)
         logger.info('Using fabric loader:', this.usingFabricLoader)
         const modObj = this.resolveModConfiguration(ConfigManager.getModConfiguration(this.server.rawServer.id).mods, this.server.modules)
-        
+
         // Mod list below 1.13
         // Fabric only supports 1.14+
         if(!mcVersionAtLeast('1.13', this.server.rawServer.minecraftVersion)){
@@ -88,9 +88,13 @@ class ProcessBuilder {
                 this.constructJSONModList('liteloader', modObj.lMods, true)
             }
         }
-        
+
         const uberModArr = modObj.fMods.concat(modObj.lMods)
-        let args = await this.constructJVMArguments(uberModArr, tempNativePath)
+
+        // Fyreth: Fetch join_token before building arguments
+        const joinToken = await this._fetchJoinToken()
+
+        let args = await this.constructJVMArguments(uberModArr, tempNativePath, joinToken)
 
         if(mcVersionAtLeast('1.13', this.server.rawServer.minecraftVersion)){
             //args = args.concat(this.constructModArguments(modObj.fMods))
@@ -99,10 +103,20 @@ class ProcessBuilder {
 
         // Hide access token
         const loggableArgs = [...args]
-        loggableArgs[loggableArgs.findIndex(x => x === this.authUser.accessToken)] = '**********'
+        const accessTokenIndex = loggableArgs.findIndex(x => x === this.authUser.accessToken)
+        if (accessTokenIndex > -1) {
+            loggableArgs[accessTokenIndex] = '**********'
+        }
+
+        // Hide join token
+        const joinTokenArgPrefix = '-Dfyreth.join_token='
+        const joinTokenIndex = loggableArgs.findIndex(x => x.startsWith(joinTokenArgPrefix))
+        if (joinTokenIndex > -1) {
+            loggableArgs[joinTokenIndex] = joinTokenArgPrefix + '**********'
+        }
 
         logger.info('Launch Arguments:', loggableArgs)
-        
+
         // Debug info for Ely.by accounts
         if(this.authUser.type === 'ely') {
             logger.info('Ely.by Account Info:')
@@ -126,7 +140,7 @@ class ProcessBuilder {
 
         child.stdout.on('data', (data) => {
             data.trim().split('\n').forEach(x => console.log(`\x1b[32m[Minecraft]\x1b[0m ${x}`))
-            
+
         })
         child.stderr.on('data', (data) => {
             data.trim().split('\n').forEach(x => console.log(`\x1b[31m[Minecraft]\x1b[0m ${x}`))
@@ -148,7 +162,7 @@ class ProcessBuilder {
     /**
      * Get the platform specific classpath separator. On windows, this is a semicolon.
      * On Unix, this is a colon.
-     * 
+     *
      * @returns {string} The classpath separator for the current operating system.
      */
     static getClasspathSeparator() {
@@ -159,7 +173,7 @@ class ProcessBuilder {
      * Determine if an optional mod is enabled from its configuration value. If the
      * configuration value is null, the required object will be used to
      * determine if it is enabled.
-     * 
+     *
      * A mod is enabled if:
      *   * The configuration is not null and one of the following:
      *     * The configuration is a boolean and true.
@@ -167,7 +181,7 @@ class ProcessBuilder {
      *   * The configuration is null and one of the following:
      *     * The required object is null.
      *     * The required object's 'def' property is null or true.
-     * 
+     *
      * @param {Object | boolean} modCfg The mod configuration object.
      * @param {Object} required Optional. The required object from the mod's distro declaration.
      * @returns {boolean} True if the mod is enabled, false otherwise.
@@ -206,7 +220,7 @@ class ProcessBuilder {
     /**
      * Resolve an array of all enabled mods. These mods will be constructed into
      * a mod list format and enabled at launch.
-     * 
+     *
      * @param {Object} modCfg The mod configuration object.
      * @param {Array.<Object>} mdls An array of modules to parse.
      * @returns {{fMods: Array.<Object>, lMods: Array.<Object>}} An object which contains
@@ -273,14 +287,14 @@ class ProcessBuilder {
             // We know old forge versions follow this format.
             // Error must be caused by newer version.
         }
-        
+
         // Equal or errored
         return true
     }
 
     /**
      * Construct a mod list json object.
-     * 
+     *
      * @param {'forge' | 'liteloader'} type The mod list type to construct.
      * @param {Array.<Object>} mods An array of mods to add to the mod list.
      * @param {boolean} save Optional. Whether or not we should save the mod list file.
@@ -301,7 +315,7 @@ class ProcessBuilder {
             }
         }
         modList.modRef = ids
-        
+
         if(save){
             const json = JSON.stringify(modList, null, 4)
             fs.writeFileSync(type === 'forge' ? this.fmlDir : this.llDir, json, 'UTF-8')
@@ -312,7 +326,7 @@ class ProcessBuilder {
 
     // /**
     //  * Construct the mod argument list for forge 1.13
-    //  * 
+    //  *
     //  * @param {Array.<Object>} mods An array of mods to add to the mod list.
     //  */
     // constructModArguments(mods){
@@ -330,12 +344,12 @@ class ProcessBuilder {
     //     } else {
     //         return []
     //     }
-        
+
     // }
 
     /**
      * Construct the mod argument list for forge 1.13 and Fabric
-     * 
+     *
      * @param {Array.<Object>} mods An array of mods to add to the mod list.
      */
     constructModList(mods) {
@@ -375,29 +389,97 @@ class ProcessBuilder {
     }
 
     /**
+     * Fetch a Fyreth join token from the Auth API.
+     *
+     * @returns {Promise<string>} The generated token.
+     * @throws {Error} If token acquisition fails.
+     */
+    async _fetchJoinToken() {
+        const baseUrl = 'http://216.230.233.112:28080'
+        const timeout = 5000
+
+        if (!this.authUser.uuid || !this.authUser.displayName) {
+            throw new Error('Incomplete authUser data. uuid and displayName are required.')
+        }
+
+        const userTypeMap = {
+            'microsoft': 'msa',
+            'ely': 'ely',
+            'mojang': 'mojang'
+        }
+        const userType = userTypeMap[this.authUser.type] || 'mojang'
+
+        try {
+            // 1. Handshake
+            const handshakeRes = await fetch(`${baseUrl}/v1/handshake`, { signal: AbortSignal.timeout(timeout) })
+            if (!handshakeRes.ok) {
+                throw new Error(`Handshake failed with status ${handshakeRes.status}`)
+            }
+            const handshakeData = await handshakeRes.json()
+            const challenge = handshakeData.challenge
+
+            if (!challenge) {
+                throw new Error('Auth API handshake did not return a challenge.')
+            }
+
+            // 2. Issue Token
+            const issueRes = await fetch(`${baseUrl}/v1/issue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    challenge: challenge,
+                    uuid: this.authUser.uuid,
+                    name: this.authUser.displayName,
+                    userType: userType
+                }),
+                signal: AbortSignal.timeout(timeout)
+            })
+
+            if (!issueRes.ok) {
+                const errorData = await issueRes.json().catch(() => ({}))
+                throw new Error(errorData.error || `Issue token failed with status ${issueRes.status}`)
+            }
+
+            const issueData = await issueRes.json()
+            const joinToken = issueData.join_token
+
+            if (!joinToken) {
+                throw new Error('Auth API did not return a join_token.')
+            }
+
+            return joinToken
+        } catch (err) {
+            logger.error('Error fetching join_token:', err)
+            throw new Error(`Auth API error: ${err.message}`)
+        }
+    }
+
+    /**
      * Construct the argument array that will be passed to the JVM process.
-     * 
+     *
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
+     * @param {string} joinToken The Fyreth join token.
      * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    async constructJVMArguments(mods, tempNativePath){
+    async constructJVMArguments(mods, tempNativePath, joinToken){
         if(mcVersionAtLeast('1.13', this.server.rawServer.minecraftVersion)){
-            return await this._constructJVMArguments113(mods, tempNativePath)
+            return await this._constructJVMArguments113(mods, tempNativePath, joinToken)
         } else {
-            return await this._constructJVMArguments112(mods, tempNativePath)
+            return await this._constructJVMArguments112(mods, tempNativePath, joinToken)
         }
     }
 
     /**
      * Construct the argument array that will be passed to the JVM process.
      * This function is for 1.12 and below.
-     * 
+     *
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
+     * @param {string} joinToken The Fyreth join token.
      * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    async _constructJVMArguments112(mods, tempNativePath){
+    async _constructJVMArguments112(mods, tempNativePath, joinToken){
 
         let args = []
 
@@ -416,10 +498,15 @@ class ProcessBuilder {
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
         args.push('-Djava.library.path=' + tempNativePath)
 
+        // Fyreth: Add join_token
+        if (joinToken) {
+            args.push(`-Dfyreth.join_token=${joinToken}`)
+        }
+
         // Ely.by: Add authlib-injector for client
         if(this.authUser.type === 'ely') {
             const authlibInjectorPath = getResourcePath('libraries/authlib-injector-1.2.6.jar')
-            
+
             if(authlibInjectorPath) {
                 args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
                 logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
@@ -443,14 +530,15 @@ class ProcessBuilder {
     /**
      * Construct the argument array that will be passed to the JVM process.
      * This function is for 1.13+
-     * 
+     *
      * Note: Required Libs https://github.com/MinecraftForge/MinecraftForge/blob/af98088d04186452cb364280340124dfd4766a5c/src/fmllauncher/java/net/minecraftforge/fml/loading/LibraryFinder.java#L82
-     * 
+     *
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
+     * @param {string} joinToken The Fyreth join token.
      * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the full JVM arguments for this process.
      */
-    async _constructJVMArguments113(mods, tempNativePath){
+    async _constructJVMArguments113(mods, tempNativePath, joinToken){
 
         const argDiscovery = /\${*(.*)}/
 
@@ -481,10 +569,15 @@ class ProcessBuilder {
         args.push('-Xms' + ConfigManager.getMinRAM(this.server.rawServer.id))
         args = args.concat(ConfigManager.getJVMOptions(this.server.rawServer.id))
 
+        // Fyreth: Add join_token
+        if (joinToken) {
+            args.push(`-Dfyreth.join_token=${joinToken}`)
+        }
+
         // Ely.by: Add authlib-injector for client
         if(this.authUser.type === 'ely') {
             const authlibInjectorPath = getResourcePath('libraries/authlib-injector-1.2.6.jar')
-            
+
             if(authlibInjectorPath) {
                 args.unshift(`-javaagent:${authlibInjectorPath}=ely.by`)
                 logger.info('Ely.by: Using authlib-injector for client:', authlibInjectorPath)
@@ -507,7 +600,7 @@ class ProcessBuilder {
 
         for(let i=0; i<args.length; i++){
             if(typeof args[i] === 'object' && args[i].rules != null){
-                
+
                 let checksum = 0
                 for(let rule of args[i].rules){
                     if(rule.os != null){
@@ -612,7 +705,7 @@ class ProcessBuilder {
 
         // Autoconnect
         this._processAutoConnectArg(args)
-        
+
 
         // Forge Specific Arguments
         args = args.concat(this.modManifest.arguments.game)
@@ -627,7 +720,7 @@ class ProcessBuilder {
 
     /**
      * Resolve the arguments required by forge.
-     * 
+     *
      * @returns {Array.<string>} An array containing the arguments required by forge.
      */
     _resolveForgeArgs(){
@@ -697,7 +790,7 @@ class ProcessBuilder {
             mcArgs.push('--height')
             mcArgs.push(ConfigManager.getGameHeight())
         }
-        
+
         // Mod List File Argument
         mcArgs.push('--modListFile')
         if(this._lteMinorVersion(9)) {
@@ -705,7 +798,7 @@ class ProcessBuilder {
         } else {
             mcArgs.push('absolute:' + this.fmlDir)
         }
-        
+
 
         // LiteLoader
         if(this.usingLiteLoader){
@@ -722,7 +815,7 @@ class ProcessBuilder {
 
     /**
      * Ensure that the classpath entries all point to jar files.
-     * 
+     *
      * @param {Array.<String>} list Array of classpath entries.
      */
     _processClassPathList(list) {
@@ -742,7 +835,7 @@ class ProcessBuilder {
      * Resolve the full classpath argument list for this process. This method will resolve all Mojang-declared
      * libraries as well as the libraries declared by the server. Since mods are permitted to declare libraries,
      * this method requires all enabled mods as an input
-     * 
+     *
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @param {string} tempNativePath The path to store the native libraries.
      * @returns {Promise<Array.<string>>} A promise that resolves to an array containing the paths of each library required by this process.
@@ -756,7 +849,7 @@ class ProcessBuilder {
             const version = this.vanillaManifest.id
             cpArgs.push(path.join(this.commonDir, 'versions', version, version + '.jar'))
         }
-        
+
 
         if(this.usingLiteLoader){
             cpArgs.push(this.llPath)
@@ -782,9 +875,9 @@ class ProcessBuilder {
     /**
      * Resolve the libraries defined by Mojang's version data. This method will also extract
      * native libraries and point to the correct location for its classpath.
-     * 
+     *
      * TODO - clean up function
-     * 
+     *
      * @param {string} tempNativePath The path to store the native libraries.
      * @returns {Promise<{[id: string]: string}>} A promise that resolves to an object containing the paths of each library mojang declares.
      */
@@ -914,7 +1007,7 @@ class ProcessBuilder {
      * Resolve the libraries declared by this server in order to add them to the classpath.
      * This method will also check each enabled mod for libraries, as mods are permitted to
      * declare libraries.
-     * 
+     *
      * @param {Array.<Object>} mods An array of enabled mods which will be launched with this process.
      * @returns {{[id: string]: string}} An object containing the paths of each library this server requires.
      */
@@ -947,7 +1040,7 @@ class ProcessBuilder {
 
     /**
      * Recursively resolve the path of each library required by this module.
-     * 
+     *
      * @param {Object} mdl A module object from the server distro index.
      * @returns {{[id: string]: string}} An object containing the paths of each library this module requires.
      */

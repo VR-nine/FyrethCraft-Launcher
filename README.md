@@ -15,6 +15,9 @@
   * Add multiple accounts and easily switch between them.
   * [Microsoft (OAuth 2.0)](https://www.microsoft.com/) 
   * [Ely.by](https://ely.by/)
+* 🛡️ **Secure Join System.**
+  * "Strict join" only from the launcher using a dynamic `join_token`.
+  * Integration with external Auth API for secure session validation.
 * 📂 Efficient asset management.
   * Receive client updates as soon as we release them.
   * Files are validated before launch. Corrupt or incorrect files will be redownloaded.
@@ -42,10 +45,6 @@
   * Easy language switching through settings.
 
 This is not an exhaustive list. Download and install the launcher to gauge all it can do!
-
-#### Need Help? [Check the wiki.][wiki]
-
-#### Like the project? Leave a ⭐ star on the repository!
 
 ## Downloads
 
@@ -127,6 +126,10 @@ Build for a specific platform.
 
 Builds for macOS may not work on Windows/Linux and vice-versa.
 
+**Generation token**
+```console
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 ---
 
 ### Visual Studio Code
