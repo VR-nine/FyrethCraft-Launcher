@@ -548,15 +548,15 @@ body, button {
     10%, 90% {
         transform: translate3d(-1px, 0, 0);
     }
-    
+
     20%, 80% {
         transform: translate3d(2px, 0, 0);
     }
-  
+
     30%, 50%, 70% {
         transform: translate3d(-4px, 0, 0);
     }
-  
+
     40%, 60% {
         transform: translate3d(4px, 0, 0);
     }
@@ -2508,7 +2508,7 @@ input:checked + .toggleSwitchSlider:before {
     position: relative;
     top: 25px;
     display: inline-flex;
-    line-height: 24px;
+    line-height: 1.1;
     left: 50px;
 }
 #landingContainer > #lower > #center {
@@ -3194,7 +3194,8 @@ input:checked + .toggleSwitchSlider:before {
     font-size: 9px;
     letter-spacing: 1px;
     font-weight: bold;
-    text-shadow: 0px 0px 0px #bebcbb;
+    line-height: 1.1;
+    text-shadow: 0 0 0 #bebcbb;
 }
 
 /* Divider used on the bottom of the landing view. */
@@ -3213,7 +3214,8 @@ input:checked + .toggleSwitchSlider:before {
 /* Maintains maximum width on the status bar. */
 #server_status_wrapper {
     display: inline-flex;
-    width: 100px;
+    align-items: center;
+    width: 110px;
 }
 
 /* Icon which displays the status of the server. */
@@ -3238,7 +3240,9 @@ input:checked + .toggleSwitchSlider:before {
 #mojangStatusWrapper {
     position: relative;
     display: flex;
+    align-items: center;
     cursor: pointer;
+    line-height: 1.1;
 }
 
 /* Icon which displays the status of the mojang services. */
@@ -3419,11 +3423,12 @@ input:checked + .toggleSwitchSlider:before {
     cursor: pointer;
     font-weight: 900;
     letter-spacing: 2px;
-    text-shadow: 0px 0px 0px #bebcbb;
+    text-shadow: 0 0 0 #bebcbb;
     font-size: 20px;
-    padding: 0px;
+    padding: 0;
     transition: 0.25s ease;
     outline: none;
+    white-space: nowrap;
 }
 #launch_button:hover,
 #launch_button:focus {
@@ -3445,7 +3450,7 @@ input:checked + .toggleSwitchSlider:before {
     top: 25px;
     display: none;
 }
- 
+
 /* Left side of launch details container, displays percentage and a divider. */
 #launch_details_left {
     display: flex;
@@ -3475,8 +3480,8 @@ input:checked + .toggleSwitchSlider:before {
     border: none;
     outline: none;
     cursor: pointer;
-    line-height: 24px;
-    padding: 0px;
+    line-height: 1.1;
+    padding: 0;
     transition: 0.25s ease;
 }
 #server_selection_button:hover,
@@ -3507,6 +3512,14 @@ input:checked + .toggleSwitchSlider:before {
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
+}
+
+/* When game is running, apply button style to status text */
+#launch_details_text.game-running {
+    font-weight: 900;
+    letter-spacing: 2px;
+    text-shadow: 0 0 0 #bebcbb;
+    font-size: 20px;
 }
 
 /*******************************************************************************

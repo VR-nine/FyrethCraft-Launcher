@@ -180,6 +180,7 @@ pleaseWait = "Пожалуйста, подождите.."
 failureTitle = "Ошибка запуска"
 failureText = "Смотрите консоль (CTRL + Shift + I) для подробностей."
 okay = "ОК"
+running = "Запущено"
 
 [js.landing.selectedAccount]
 noAccountSelected = "Аккаунт не выбран"

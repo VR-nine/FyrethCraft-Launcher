@@ -58,9 +58,22 @@ function toggleLaunchArea(loading){
     if(loading){
         launch_details.style.display = 'flex'
         launch_content.style.display = 'none'
+        // Show progress bar and percentage when loading
+        if(launch_progress) {
+            launch_progress.style.display = 'block'
+        }
+        if(launch_progress_label) {
+            launch_progress_label.style.display = 'block'
+        }
     } else {
         launch_details.style.display = 'none'
-        launch_content.style.display = 'inline-flex'
+        // Only show launch button if game is not running
+        if(!isGameRunning()){
+            launch_content.style.display = 'inline-flex'
+        } else {
+            // Keep button hidden if game is running
+            launch_content.style.display = 'none'
+        }
     }
 }
 
@@ -71,6 +84,13 @@ function toggleLaunchArea(loading){
  */
 function setLaunchDetails(details){
     launch_details_text.innerHTML = details
+    // Add game-running class if showing "Running" status, remove otherwise
+    const runningText = Lang.queryJS('landing.launch.running')
+    if(details === runningText) {
+        launch_details_text.classList.add('game-running')
+    } else {
+        launch_details_text.classList.remove('game-running')
+    }
 }
 
 /**
@@ -100,12 +120,58 @@ function setDownloadPercentage(percent){
  * @param {boolean} val True to enable, false to disable.
  */
 function setLaunchEnabled(val){
-    document.getElementById('launch_button').disabled = !val
+    const button = document.getElementById('launch_button')
+    if(button) {
+        button.disabled = !val
+        // Also ensure button visibility matches enabled state when game is running
+        if(!val && isGameRunning()) {
+            // If disabling and game is running, hide the button container
+            if(launch_content) {
+                launch_content.style.display = 'none'
+            }
+        }
+    }
+}
+
+/**
+ * Check if game is currently running.
+ * @returns {boolean} True if game process is active, false otherwise.
+ */
+function isGameRunning(){
+    if(proc == null) return false
+    try {
+        // Check if process is still running
+        // exitCode is null while process is running, and set to a number when it exits
+        // killed is true if process was killed, false otherwise
+        // Also check if process has been spawned (stdout/stderr exist)
+        const isRunning = proc.exitCode == null && !proc.killed && proc.stdout != null
+        return isRunning
+    } catch(err) {
+        // If we can't check the process, assume it's not running
+        return false
+    }
 }
 
 // Bind launch button
 document.getElementById('launch_button').addEventListener('click', async e => {
+    // Prevent launching if game is already running
+    if(isGameRunning()){
+        loggerLanding.warn('Game is already running, ignoring launch request.')
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+    }
+    
     loggerLanding.info('Launching game..')
+    // Disable and hide button immediately when clicked - BEFORE any async operations
+    setLaunchEnabled(false)
+    if(launch_content) {
+        launch_content.style.display = 'none'
+    }
+    if(launch_details) {
+        launch_details.style.display = 'flex'
+    }
+    
     try {
         const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
         const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer())
@@ -129,6 +195,9 @@ document.getElementById('launch_button').addEventListener('click', async e => {
     } catch(err) {
         loggerLanding.error('Unhandled error in during launch process.', err)
         showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'))
+        // Re-enable button on error
+        setLaunchEnabled(true)
+        toggleLaunchArea(false)
     }
 })
 
@@ -180,7 +249,8 @@ function updateSelectedServer(serv){
     if(getCurrentView() === VIEWS.settings){
         animateSettingsTabRefresh()
     }
-    setLaunchEnabled(serv != null)
+    // Only enable button if server is selected AND game is not running
+    setLaunchEnabled(serv != null && !isGameRunning())
 }
 // Real text is set in uibinder.js on distributionIndexDone.
 server_selection_button.innerHTML = '&#8226; ' + Lang.queryJS('landing.selectedServer.loading')
@@ -599,7 +669,23 @@ async function dlAsync(login = true) {
         const SERVER_JOINED_REGEX = new RegExp(`\\[.+\\]: \\[CHAT\\] ${authUser.displayName} joined the game`)
 
         const onLoadComplete = () => {
-            toggleLaunchArea(false)
+            // Show "Running" status - game is running
+            if(launch_details) {
+                launch_details.style.display = 'flex'
+                setLaunchDetails(Lang.queryJS('landing.launch.running'))
+                // Hide progress bar and percentage when game is running
+                if(launch_progress) {
+                    launch_progress.style.display = 'none'
+                }
+                if(launch_progress_label) {
+                    launch_progress_label.style.display = 'none'
+                }
+            }
+            // Keep button hidden
+            if(launch_content) {
+                launch_content.style.display = 'none'
+            }
+            
             if(hasRPC){
                 DiscordWrapper.updateDetails(Lang.queryJS('landing.discord.loading'))
                 proc.stdout.on('data', gameStateChange)
@@ -646,28 +732,93 @@ async function dlAsync(login = true) {
             // Build Minecraft process.
             proc = await pb.build()
 
+            // Immediately disable and hide button once process is created
+            // This MUST happen immediately after process creation
+            setLaunchEnabled(false)
+            if(launch_content) {
+                launch_content.style.display = 'none'
+            }
+            
+            // Show "Running" status instead of hiding
+            if(launch_details) {
+                launch_details.style.display = 'flex'
+                setLaunchDetails(Lang.queryJS('landing.launch.running'))
+                // Hide progress bar and percentage when game is running
+                if(launch_progress) {
+                    launch_progress.style.display = 'none'
+                }
+                if(launch_progress_label) {
+                    launch_progress_label.style.display = 'none'
+                }
+            }
+
             // Bind listeners to stdout.
             proc.stdout.on('data', tempListener)
             proc.stderr.on('data', gameErrorListener)
+            
+            // Set up periodic check to ensure button stays disabled and status is shown
+            const buttonCheckInterval = setInterval(() => {
+                if(isGameRunning()) {
+                    // Force button to stay disabled and hidden
+                    setLaunchEnabled(false)
+                    if(launch_content) {
+                        launch_content.style.display = 'none'
+                    }
+                    // Show "Running" status
+                    if(launch_details) {
+                        launch_details.style.display = 'flex'
+                        setLaunchDetails(Lang.queryJS('landing.launch.running'))
+                        if(launch_progress) {
+                            launch_progress.style.display = 'none'
+                        }
+                        if(launch_progress_label) {
+                            launch_progress_label.style.display = 'none'
+                        }
+                    }
+                } else {
+                    // Game stopped, clear interval
+                    clearInterval(buttonCheckInterval)
+                }
+            }, 1000) // Check every second
 
-            setLaunchDetails(Lang.queryJS('landing.dlAsync.doneEnjoyServer'))
+            // Handle process close event
+            const onProcessClose = (code, signal) => {
+                loggerLaunchSuite.info('Game process closed.')
+                
+                // Clear button check interval
+                clearInterval(buttonCheckInterval)
+                
+                proc = null
+                
+                // Shutdown Discord RPC if enabled
+                if(hasRPC){
+                    loggerLaunchSuite.info('Shutting down Discord Rich Presence..')
+                    DiscordWrapper.shutdownRPC()
+                    hasRPC = false
+                }
+                
+                // Re-enable and show launch button when game closes
+                setLaunchEnabled(true)
+                toggleLaunchArea(false)
+            }
 
             // Init Discord Hook
             if(distro.rawDistribution.discord != null && serv.rawServer.discord != null){
                 DiscordWrapper.initRPC(distro.rawDistribution.discord, serv.rawServer.discord)
                 hasRPC = true
-                proc.on('close', (code, signal) => {
-                    loggerLaunchSuite.info('Shutting down Discord Rich Presence..')
-                    DiscordWrapper.shutdownRPC()
-                    hasRPC = false
-                    proc = null
-                })
             }
+            
+            // Always listen for process close to re-enable button
+            proc.on('close', onProcessClose)
 
         } catch(err) {
 
             loggerLaunchSuite.error('Error during launch', err)
             showLaunchFailure(Lang.queryJS('landing.dlAsync.errorDuringLaunchTitle'), err.message || Lang.queryJS('landing.dlAsync.checkConsoleForDetails'))
+            // Re-enable button on error
+            proc = null
+            setLaunchEnabled(true)
+            toggleLaunchArea(false)
 
         }
     }
