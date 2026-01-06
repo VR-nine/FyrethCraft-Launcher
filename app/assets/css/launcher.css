@@ -2989,9 +2989,23 @@ input:checked + .toggleSwitchSlider:before {
     box-shadow: 0px 0px 10px 0px rgb(0, 0, 0);
     overflow: hidden;
     position: relative;
-    background-position: center;
+}
+
+/* Avatar background image layer (flipped) */
+#avatarContainer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: var(--avatar-bg-image, none);
+    background-position: var(--avatar-bg-position, center);
     background-repeat: no-repeat;
-    background-size: contain;
+    background-size: var(--avatar-bg-size, contain);
+    transform: var(--avatar-transform, none);
+    image-rendering: pixelated;
+    z-index: 0;
 }
 
 /* Avatar edit overlay. */
@@ -3004,7 +3018,8 @@ input:checked + .toggleSwitchSlider:before {
     align-items: center;
     transition: 0.25s ease;
     font-weight: bold;
-    letter-spacing: 2px;
+    font-size: 10px;
+    letter-spacing: 1px;
     background-color: rgba(0, 0, 0, 0.35);
     -webkit-user-select: none;
     border: none;

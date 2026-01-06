@@ -157,7 +157,9 @@ function detectSystemLanguage(){
         'de': 'de_DE',
         'de-DE': 'de_DE',
         'uk': 'uk_UA',
-        'uk-UA': 'uk_UA'
+        'uk-UA': 'uk_UA',
+        'ko': 'ko_KR',
+        'ko-KR': 'ko_KR'
     }
     
     return supportedLanguages[langCode] || 'en_US'

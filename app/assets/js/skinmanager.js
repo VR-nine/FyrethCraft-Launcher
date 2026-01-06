@@ -248,37 +248,32 @@ function updateHeadInElement(element, account, size = 40) {
     
     // Helper function to apply styles to element
     const applyStyles = (url, isMicrosoft = false, useCropping = false) => {
+        // Set width and height on the element itself
+        element.style.width = `${size}px`
+        element.style.height = `${size}px`
+        
         if (isMicrosoft) {
             // Microsoft returns ready-to-use avatar, no cropping needed
-            element.style.backgroundImage = `url('${url}')`
-            element.style.backgroundSize = 'cover'
-            element.style.backgroundPosition = 'center'
-            element.style.width = `${size}px`
-            element.style.height = `${size}px`
-            element.style.imageRendering = 'pixelated'
-            element.style.backgroundRepeat = 'no-repeat'
-            element.style.transform = 'scaleX(-1)'
+            // Use CSS variables for background image (applied to ::before pseudo-element)
+            element.style.setProperty('--avatar-bg-image', `url('${url}')`)
+            element.style.setProperty('--avatar-bg-size', 'cover')
+            element.style.setProperty('--avatar-bg-position', 'center')
+            element.style.setProperty('--avatar-transform', 'scaleX(-1)')
         } else if (useCropping) {
             // Ely.by and others return full skin texture, need cropping
             const backgroundSize = size * 8
             const backgroundPosition = -size
             
-            element.style.backgroundImage = `url('${url}')`
-            element.style.backgroundSize = `${backgroundSize}px ${backgroundSize}px`
-            element.style.backgroundPosition = `${backgroundPosition}px ${backgroundPosition}px`
-            element.style.width = `${size}px`
-            element.style.height = `${size}px`
-            element.style.imageRendering = 'pixelated'
-            element.style.backgroundRepeat = 'no-repeat'
+            element.style.setProperty('--avatar-bg-image', `url('${url}')`)
+            element.style.setProperty('--avatar-bg-size', `${backgroundSize}px ${backgroundSize}px`)
+            element.style.setProperty('--avatar-bg-position', `${backgroundPosition}px ${backgroundPosition}px`)
+            element.style.setProperty('--avatar-transform', 'none')
         } else {
             // Default style
-            element.style.backgroundImage = `url('${url}')`
-            element.style.backgroundSize = 'cover'
-            element.style.backgroundPosition = 'center'
-            element.style.width = `${size}px`
-            element.style.height = `${size}px`
-            element.style.imageRendering = 'pixelated'
-            element.style.backgroundRepeat = 'no-repeat'
+            element.style.setProperty('--avatar-bg-image', `url('${url}')`)
+            element.style.setProperty('--avatar-bg-size', 'cover')
+            element.style.setProperty('--avatar-bg-position', 'center')
+            element.style.setProperty('--avatar-transform', 'none')
         }
     }
     

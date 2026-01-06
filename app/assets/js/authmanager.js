@@ -204,6 +204,84 @@ async function fullMicrosoftAuthFlow(entryCode, authMode) {
         if(xstsResonse.responseStatus === RestResponseStatus.ERROR) {
             return Promise.reject(microsoftErrorDisplayable(xstsResonse.microsoftErrorCode))
         }
+        
+        // Extract XUID from XSTS response (Xbox User ID)
+        // XUID can be in different places depending on the response format
+        let xuid = null
+        let isRealXuid = false // Track if we have real xid (not uhs)
+        
+        // Log full XSTS response structure for debugging (without sensitive data)
+        if(xstsResonse.data) {
+            const xstsKeys = Object.keys(xstsResonse.data)
+            log.info(`XSTS Response keys: ${xstsKeys.join(', ')}`)
+            
+                // Try different possible locations for XUID
+                if(xstsResonse.data.DisplayClaims) {
+                    log.info(`XSTS DisplayClaims keys: ${Object.keys(xstsResonse.data.DisplayClaims).join(', ')}`)
+                    
+                    // Method 1: DisplayClaims.xui[0].xid (most common format according to Microsoft docs)
+                    if(xstsResonse.data.DisplayClaims.xui) {
+                        if(Array.isArray(xstsResonse.data.DisplayClaims.xui) && xstsResonse.data.DisplayClaims.xui.length > 0) {
+                            const xuiObj = xstsResonse.data.DisplayClaims.xui[0]
+                            if(xuiObj && xuiObj.xid) {
+                                xuid = xuiObj.xid.toString()
+                                isRealXuid = true
+                                log.info(`✓ Extracted XUID from DisplayClaims.xui[0].xid: ${xuid}`)
+                            } else if(xuiObj && xuiObj.uhs) {
+                                // Fallback: Use uhs (User Hash String) as XUID
+                                // This happens when account doesn't have xid in XSTS response
+                                // Note: uhs is NOT a real XUID and may not work for skin loading
+                                xuid = xuiObj.uhs.toString()
+                                isRealXuid = false
+                                log.warn(`DisplayClaims.xui[0].xid not found, using uhs as XUID: ${xuid} (Note: uhs is not a real XUID)`)
+                            } else {
+                                log.warn(`DisplayClaims.xui[0] exists but neither xid nor uhs found. Object keys: ${xuiObj ? Object.keys(xuiObj).join(', ') : 'null'}`)
+                            }
+                        } else if(typeof xstsResonse.data.DisplayClaims.xui === 'object' && xstsResonse.data.DisplayClaims.xui.xid) {
+                            xuid = xstsResonse.data.DisplayClaims.xui.xid.toString()
+                            isRealXuid = true
+                            log.info(`✓ Extracted XUID from DisplayClaims.xui.xid: ${xuid}`)
+                        }
+                    }
+                    
+                    // Method 2: DisplayClaims.xuid (alternative format)
+                    if(!xuid && xstsResonse.data.DisplayClaims.xuid) {
+                        if(Array.isArray(xstsResonse.data.DisplayClaims.xuid) && xstsResonse.data.DisplayClaims.xuid.length > 0) {
+                            xuid = xstsResonse.data.DisplayClaims.xuid[0].toString()
+                            isRealXuid = true
+                            log.info(`✓ Extracted XUID from DisplayClaims.xuid array: ${xuid}`)
+                        } else if(typeof xstsResonse.data.DisplayClaims.xuid === 'string') {
+                            xuid = xstsResonse.data.DisplayClaims.xuid
+                            isRealXuid = true
+                            log.info(`✓ Extracted XUID from DisplayClaims.xuid string: ${xuid}`)
+                        } else if(typeof xstsResonse.data.DisplayClaims.xuid === 'number') {
+                            xuid = xstsResonse.data.DisplayClaims.xuid.toString()
+                            isRealXuid = true
+                            log.info(`✓ Extracted XUID from DisplayClaims.xuid number: ${xuid}`)
+                        }
+                    }
+                
+                // Method 3: DisplayClaims.uhs (User Hash) - sometimes contains XUID
+                if(!xuid && xstsResonse.data.DisplayClaims.uhs) {
+                    log.info(`DisplayClaims.uhs found: ${Array.isArray(xstsResonse.data.DisplayClaims.uhs) ? xstsResonse.data.DisplayClaims.uhs[0] : xstsResonse.data.DisplayClaims.uhs}`)
+                }
+                
+                if(!xuid) {
+                    log.warn('⚠ XUID not found in XSTS DisplayClaims. Full structure:', JSON.stringify(xstsResonse.data.DisplayClaims, null, 2))
+                }
+            } else {
+                log.warn('⚠ XSTS response missing DisplayClaims. Available keys:', xstsKeys.join(', '))
+                // Try to find XUID in root level
+                if(xstsResonse.data.xuid) {
+                    xuid = xstsResonse.data.xuid.toString()
+                    isRealXuid = true
+                    log.info(`✓ Extracted XUID from root level: ${xuid}`)
+                }
+            }
+        } else {
+            log.error('❌ XSTS response data is null or undefined')
+        }
+        
         const mcTokenResponse = await MicrosoftAuth.getMCAccessToken(xstsResonse.data)
         if(mcTokenResponse.responseStatus === RestResponseStatus.ERROR) {
             return Promise.reject(microsoftErrorDisplayable(mcTokenResponse.microsoftErrorCode))
@@ -217,6 +295,8 @@ async function fullMicrosoftAuthFlow(entryCode, authMode) {
             accessTokenRaw,
             xbl: xblResponse.data,
             xsts: xstsResonse.data,
+            xuid: xuid, // Xbox User ID extracted from XSTS
+            isRealXuid: isRealXuid, // Flag indicating if xuid is real xid (not uhs)
             mcToken: mcTokenResponse.data,
             mcProfile: mcProfileResponse.data
         }
@@ -259,7 +339,9 @@ exports.addMicrosoftAccount = async function(authCode) {
         calculateExpiryDate(now, fullAuth.mcToken.expires_in),
         fullAuth.accessToken.access_token,
         fullAuth.accessToken.refresh_token,
-        calculateExpiryDate(now, fullAuth.accessToken.expires_in)
+        calculateExpiryDate(now, fullAuth.accessToken.expires_in),
+        fullAuth.xuid, // Save XUID from XSTS response
+        fullAuth.isRealXuid // Save flag indicating if xuid is real xid (not uhs)
     )
     ConfigManager.save()
 
@@ -330,6 +412,14 @@ async function validateSelectedMojangAccount(){
                 ConfigManager.updateMojangAuthAccount(current.uuid, session.accessToken)
                 ConfigManager.save()
             } else {
+                // Check for rate limit error (429)
+                if(refreshResponse.mojangErrorCode === MojangErrorCode.ERROR_RATELIMIT || 
+                   (refreshResponse.error && refreshResponse.error.status === 429)) {
+                    log.warn('Mojang API rate limit (429) detected. Skipping token refresh to avoid additional requests.')
+                    log.info('Account validation skipped due to rate limiting. Token may still be valid.')
+                    // Return true to avoid blocking launch, but don't refresh token
+                    return true
+                }
                 log.error('Error while validating selected profile:', refreshResponse.error)
                 log.info('Account access token is invalid.')
                 return false
@@ -340,8 +430,18 @@ async function validateSelectedMojangAccount(){
             log.info('Account access token validated.')
             return true
         }
+    } else {
+        // Check for rate limit error in validate response
+        if(response.mojangErrorCode === MojangErrorCode.ERROR_RATELIMIT || 
+           (response.error && response.error.status === 429)) {
+            log.warn('Mojang API rate limit (429) detected during validation. Skipping to avoid additional requests.')
+            log.info('Account validation skipped due to rate limiting. Assuming token is still valid.')
+            // Return true to avoid blocking launch
+            return true
+        }
     }
     
+    return false
 }
 
 /**
@@ -358,7 +458,17 @@ async function validateSelectedMicrosoftAccount(){
     const mcExpiresAt = current.expiresAt
     const mcExpired = now >= mcExpiresAt
 
+    log.info('=== Microsoft Account Validation ===')
+    log.info('Account UUID:', current.uuid)
+    log.info('Account Name:', current.displayName)
+    log.info('MC Token (first 30 chars):', current.accessToken ? current.accessToken.substring(0, 30) + '...' : 'MISSING')
+    log.info('MC Token Length:', current.accessToken ? current.accessToken.length : 0)
+    log.info('MC Token Expires At:', mcExpiresAt ? new Date(mcExpiresAt).toISOString() : 'MISSING')
+    log.info('MC Token Expired:', mcExpired)
+    log.info('XUID:', current.microsoft?.xuid || 'MISSING')
+
     if(!mcExpired) {
+        log.info('MC token is still valid, no refresh needed')
         return true
     }
 
@@ -367,10 +477,19 @@ async function validateSelectedMicrosoftAccount(){
     const msExpiresAt = current.microsoft.expires_at
     const msExpired = now >= msExpiresAt
 
+    log.info('MS Token Expires At:', msExpiresAt ? new Date(msExpiresAt).toISOString() : 'MISSING')
+    log.info('MS Token Expired:', msExpired)
+
     if(msExpired) {
         // MS expired, do full refresh.
+        log.info('Both MC and MS tokens expired, performing full refresh...')
         try {
             const res = await fullMicrosoftAuthFlow(current.microsoft.refresh_token, AUTH_MODE.MS_REFRESH)
+
+            log.info('Full refresh successful')
+            log.info('New MC Token (first 30 chars):', res.mcToken.access_token.substring(0, 30) + '...')
+            log.info('New MC Token Length:', res.mcToken.access_token.length)
+            log.info('New XUID:', res.xuid || 'NOT FOUND')
 
             ConfigManager.updateMicrosoftAuthAccount(
                 current.uuid,
@@ -378,17 +497,26 @@ async function validateSelectedMicrosoftAccount(){
                 res.accessToken.access_token,
                 res.accessToken.refresh_token,
                 calculateExpiryDate(now, res.accessToken.expires_in),
-                calculateExpiryDate(now, res.mcToken.expires_in)
+                calculateExpiryDate(now, res.mcToken.expires_in),
+                res.xuid, // Update XUID from XSTS response
+                res.isRealXuid // Update flag indicating if xuid is real xid (not uhs)
             )
             ConfigManager.save()
             return true
         } catch(err) {
+            log.error('Full refresh failed:', err)
             return false
         }
     } else {
         // Only MC expired, use existing MS token.
+        log.info('Only MC token expired, refreshing MC token using existing MS token...')
         try {
             const res = await fullMicrosoftAuthFlow(current.microsoft.access_token, AUTH_MODE.MC_REFRESH)
+
+            log.info('MC token refresh successful')
+            log.info('New MC Token (first 30 chars):', res.mcToken.access_token.substring(0, 30) + '...')
+            log.info('New MC Token Length:', res.mcToken.access_token.length)
+            log.info('XUID:', res.xuid || current.microsoft.xuid || 'NOT FOUND')
 
             ConfigManager.updateMicrosoftAuthAccount(
                 current.uuid,
@@ -396,15 +524,25 @@ async function validateSelectedMicrosoftAccount(){
                 current.microsoft.access_token,
                 current.microsoft.refresh_token,
                 current.microsoft.expires_at,
-                calculateExpiryDate(now, res.mcToken.expires_in)
+                calculateExpiryDate(now, res.mcToken.expires_in),
+                res.xuid || current.microsoft.xuid, // Update XUID if available, otherwise keep existing
+                res.isRealXuid !== undefined ? res.isRealXuid : current.microsoft.isRealXuid // Update flag if available, otherwise keep existing
             )
             ConfigManager.save()
             return true
         }
         catch(err) {
+            log.error('MC token refresh failed:', err)
             return false
         }
     }
+}
+
+// Cache for validation results to avoid too frequent API calls
+let validationCache = {
+    lastValidation: 0,
+    lastResult: null,
+    cacheDuration: 5 * 60 * 1000 // 5 minutes cache
 }
 
 /**
@@ -415,15 +553,33 @@ async function validateSelectedMicrosoftAccount(){
  */
 exports.validateSelected = async function(){
     const current = ConfigManager.getSelectedAccount()
+    if(!current) {
+        return false
+    }
 
+    // Check cache to avoid too frequent validations
+    const now = Date.now()
+    if(validationCache.lastValidation > 0 && 
+       (now - validationCache.lastValidation) < validationCache.cacheDuration &&
+       validationCache.lastResult !== null) {
+        log.debug(`Using cached validation result (${Math.round((now - validationCache.lastValidation) / 1000)}s ago)`)
+        return validationCache.lastResult
+    }
+
+    let result
     if(current.type === 'microsoft') {
-        return await validateSelectedMicrosoftAccount()
+        result = await validateSelectedMicrosoftAccount()
     } else if(current.type === 'ely') {
-        return await validateSelectedElyAccount()
+        result = await validateSelectedElyAccount()
     } else {
-        return await validateSelectedMojangAccount()
+        result = await validateSelectedMojangAccount()
     }
     
+    // Update cache
+    validationCache.lastValidation = now
+    validationCache.lastResult = result
+    
+    return result
 }
 
 /**

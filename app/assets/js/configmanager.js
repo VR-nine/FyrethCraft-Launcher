@@ -368,15 +368,22 @@ exports.addMojangAuthAccount = function(uuid, accessToken, username, displayName
  * @param {string} msRefreshToken The new Microsoft Refresh Token
  * @param {date} msExpires The date when the microsoft access token expires
  * @param {date} mcExpires The date when the mojang access token expires
+ * @param {string} xuid Optional. The Xbox User ID (XUID) from XSTS response
  * 
  * @returns {Object} The authenticated account object created by this action.
  */
-exports.updateMicrosoftAuthAccount = function(uuid, accessToken, msAccessToken, msRefreshToken, msExpires, mcExpires) {
+exports.updateMicrosoftAuthAccount = function(uuid, accessToken, msAccessToken, msRefreshToken, msExpires, mcExpires, xuid = null, isRealXuid = null) {
     config.authenticationDatabase[uuid].accessToken = accessToken
     config.authenticationDatabase[uuid].expiresAt = mcExpires
     config.authenticationDatabase[uuid].microsoft.access_token = msAccessToken
     config.authenticationDatabase[uuid].microsoft.refresh_token = msRefreshToken
     config.authenticationDatabase[uuid].microsoft.expires_at = msExpires
+    if(xuid != null) {
+        config.authenticationDatabase[uuid].microsoft.xuid = xuid
+    }
+    if(isRealXuid !== null) {
+        config.authenticationDatabase[uuid].microsoft.isRealXuid = isRealXuid
+    }
     return config.authenticationDatabase[uuid]
 }
 
@@ -432,10 +439,11 @@ exports.addElyAuthAccount = function(uuid, accessToken, username, displayName){
  * @param {string} msAccessToken The microsoft access token
  * @param {string} msRefreshToken The microsoft refresh token
  * @param {date} msExpires The date when the microsoft access token expires
+ * @param {string} xuid Optional. The Xbox User ID (XUID) from XSTS response
  * 
  * @returns {Object} The authenticated account object created by this action.
  */
-exports.addMicrosoftAuthAccount = function(uuid, accessToken, name, mcExpires, msAccessToken, msRefreshToken, msExpires) {
+exports.addMicrosoftAuthAccount = function(uuid, accessToken, name, mcExpires, msAccessToken, msRefreshToken, msExpires, xuid = null, isRealXuid = false) {
     config.selectedAccount = uuid
     config.authenticationDatabase[uuid] = {
         type: 'microsoft',
@@ -447,7 +455,9 @@ exports.addMicrosoftAuthAccount = function(uuid, accessToken, name, mcExpires, m
         microsoft: {
             access_token: msAccessToken,
             refresh_token: msRefreshToken,
-            expires_at: msExpires
+            expires_at: msExpires,
+            xuid: xuid,
+            isRealXuid: isRealXuid // Flag indicating if xuid is real xid (not uhs)
         }
     }
     return config.authenticationDatabase[uuid]

@@ -10,6 +10,29 @@ const AuthManager   = require('./assets/js/authmanager')
 const ConfigManager = require('./assets/js/configmanager')
 const { DistroAPI } = require('./assets/js/distromanager')
 
+// Export Java validation functions early so they're available for settings.js
+const {
+    validateSelectedJvm,
+    ensureJavaDirIsRoot
+} = require('helios-core/java')
+
+// Make functions globally available for other scripts (loaded early)
+if (typeof window !== 'undefined') {
+    window.validateSelectedJvm = validateSelectedJvm
+    window.ensureJavaDirIsRoot = ensureJavaDirIsRoot
+    // Set up placeholder for updateSelectedServer before landing.js loads
+    if (!window.updateSelectedServer) {
+        window._pendingUpdateSelectedServerCalls = []
+        window.updateSelectedServer = function(serv) {
+            // Store for later execution when real function is defined in landing.js
+            if (!window._pendingUpdateSelectedServerCalls) {
+                window._pendingUpdateSelectedServerCalls = []
+            }
+            window._pendingUpdateSelectedServerCalls.push(serv)
+        }
+    }
+}
+
 let rscShouldLoad = false
 let fatalStartupError = false
 
@@ -66,7 +89,16 @@ async function showMainUI(data){
 
     await prepareSettings(true)
     window.updateSelectedServer(data.getServerById(ConfigManager.getSelectedServer()))
-    refreshServerStatus()
+    if (typeof window.refreshServerStatus === 'function') {
+        window.refreshServerStatus()
+    } else {
+        // Function not yet available, will be called later when landing.js loads
+        setTimeout(() => {
+            if (typeof window.refreshServerStatus === 'function') {
+                window.refreshServerStatus()
+            }
+        }, 100)
+    }
     setTimeout(() => {
         document.getElementById('frameBar').style.backgroundColor = 'rgba(0, 0, 0, 0.5)'
         
@@ -158,7 +190,9 @@ function showFatalStartupError(){
  */
 function onDistroRefresh(data){
     window.updateSelectedServer(data.getServerById(ConfigManager.getSelectedServer()))
-    refreshServerStatus()
+    if (typeof window.refreshServerStatus === 'function') {
+        window.refreshServerStatus()
+    }
     initNews()
     syncModConfigurations(data)
     ensureJavaSettings(data)
@@ -487,4 +521,12 @@ async function devModeToggle() {
     ensureJavaSettings(data)
     window.updateSelectedServer(data.servers[0])
     syncModConfigurations(data)
+}
+
+// Make AuthManager functions available globally
+if (typeof window !== 'undefined') {
+    window.getAuthManager = function() {
+        return AuthManager
+    }
+    
 }

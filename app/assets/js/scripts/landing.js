@@ -19,22 +19,42 @@ const {
     downloadFile
 }                             = require('helios-core/dl')
 const {
-    validateSelectedJvm,
-    ensureJavaDirIsRoot,
     javaExecFromRoot,
     discoverBestJvmInstallation,
     latestOpenJDK,
     extractJdk
 }                             = require('helios-core/java')
+// Note: validateSelectedJvm and ensureJavaDirIsRoot are already exported in uibinder.js
+// They are available via window.validateSelectedJvm and window.ensureJavaDirIsRoot
 
-// Make functions globally available for other scripts
-window.validateSelectedJvm = validateSelectedJvm
-window.ensureJavaDirIsRoot = ensureJavaDirIsRoot
-window.updateSelectedServer = updateSelectedServer
+// Export updateSelectedServer early so it's available for uibinder.js
+// We'll define it later, but create a placeholder that stores calls
+// Note: Placeholder is already set up in uibinder.js, but we ensure it exists here too
+if (typeof window !== 'undefined') {
+    if (!window._pendingUpdateSelectedServerCalls) {
+        window._pendingUpdateSelectedServerCalls = []
+    }
+    if (!window.updateSelectedServer || typeof window.updateSelectedServer !== 'function') {
+        window.updateSelectedServer = function(serv) {
+            // Store for later execution when real function is defined
+            if (!window._pendingUpdateSelectedServerCalls) {
+                window._pendingUpdateSelectedServerCalls = []
+            }
+            window._pendingUpdateSelectedServerCalls.push(serv)
+        }
+    }
+}
 
 // Internal Requirements
 const DiscordWrapper          = require('./assets/js/discordwrapper')
 const ProcessBuilder          = require('./assets/js/processbuilder')
+// Note: AuthManager is already loaded in uibinder.js
+// Access it through require() which caches modules in Node.js/Electron
+// Use a local variable to avoid conflicts
+const getAuthManager = () => require('./assets/js/authmanager')
+// Note: DistroAPI is loaded in uibinder.js and used directly in this file
+// Access it through require() when needed to avoid conflicts
+const getDistroAPI = () => require('./assets/js/distromanager').DistroAPI
 
 // Launch Elements
 const launch_content          = document.getElementById('launch_content')
@@ -183,7 +203,7 @@ document.getElementById('launch_button').addEventListener('click', async e => {
             toggleLaunchArea(true)
             setLaunchPercentage(0, 100)
 
-            const details = await validateSelectedJvm(ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported)
+            const details = await window.validateSelectedJvm(window.ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported)
             if(details != null){
                 loggerLanding.info('Jvm Details', details)
                 await dlAsync()
@@ -230,7 +250,11 @@ function updateSelectedAccount(authUser){
                 window.SkinManager.updateHeadInElement(avatarContainer, authUser, 60)
             } else {
                 // Fallback to old method
-                document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/body/${authUser.uuid}/right')`
+                const container = document.getElementById('avatarContainer')
+                container.style.setProperty('--avatar-bg-image', `url('https://mc-heads.net/body/${authUser.uuid}/right')`)
+                container.style.setProperty('--avatar-bg-size', 'cover')
+                container.style.setProperty('--avatar-bg-position', 'center')
+                container.style.setProperty('--avatar-transform', 'none')
             }
         }
     }
@@ -238,22 +262,65 @@ function updateSelectedAccount(authUser){
 }
 updateSelectedAccount(ConfigManager.getSelectedAccount())
 
+// Set initial loading text before updateSelectedServer is defined
+// Real text will be set by updateSelectedServer when called from uibinder.js
+server_selection_button.innerHTML = '&#8226; ' + Lang.queryJS('landing.selectedServer.loading')
+
 // Bind selected server
 function updateSelectedServer(serv){
+    if(!server_selection_button){
+        loggerLanding.warn('server_selection_button is not available yet')
+        return
+    }
     if(getCurrentView() === VIEWS.settings){
         fullSettingsSave()
     }
     ConfigManager.setSelectedServer(serv != null ? serv.rawServer.id : null)
     ConfigManager.save()
-    server_selection_button.innerHTML = '&#8226; ' + (serv != null ? serv.rawServer.name : Lang.queryJS('landing.noSelection'))
+    const buttonText = serv != null ? serv.rawServer.name : Lang.queryJS('landing.noSelection')
+    server_selection_button.innerHTML = '&#8226; ' + buttonText
+    loggerLanding.debug('Updated server selection button text:', buttonText)
     if(getCurrentView() === VIEWS.settings){
         animateSettingsTabRefresh()
     }
     // Only enable button if server is selected AND game is not running
     setLaunchEnabled(serv != null && !isGameRunning())
 }
-// Real text is set in uibinder.js on distributionIndexDone.
-server_selection_button.innerHTML = '&#8226; ' + Lang.queryJS('landing.selectedServer.loading')
+
+// Update window function now that it's defined
+if (typeof window !== 'undefined') {
+    // Replace the placeholder with the real function
+    window.updateSelectedServer = updateSelectedServer
+    // refreshServerStatus will be assigned later when it's defined
+    // Execute any pending calls that were stored before function was defined
+    if (window._pendingUpdateSelectedServerCalls && window._pendingUpdateSelectedServerCalls.length > 0) {
+        loggerLanding.debug('Executing pending updateSelectedServer calls:', window._pendingUpdateSelectedServerCalls.length)
+        window._pendingUpdateSelectedServerCalls.forEach(serv => {
+            updateSelectedServer(serv)
+        })
+        window._pendingUpdateSelectedServerCalls = []
+    }
+    
+    // Always try to update server selection button after function is defined
+    // This ensures the button text is set even if uibinder.js called updateSelectedServer before landing.js loaded
+    if(server_selection_button){
+        // Use a small delay to ensure DistroAPI is ready
+        setTimeout(async () => {
+            try {
+                const DistroAPI = getDistroAPI()
+                const data = await DistroAPI.getDistribution()
+                const serv = data.getServerById(ConfigManager.getSelectedServer())
+                if(serv || ConfigManager.getSelectedServer() == null) {
+                    // Only update if we have a server or no server is selected (to show "no selection")
+                    updateSelectedServer(serv)
+                }
+            } catch(err) {
+                loggerLanding.debug('DistroAPI not ready yet, will be updated by uibinder.js:', err.message)
+            }
+        }, 50)
+    }
+}
+// Real text is set by updateSelectedServer when called from uibinder.js
 server_selection_button.onclick = async e => {
     e.target.blur()
     await toggleServerSelection(true)
@@ -372,6 +439,11 @@ const refreshServerStatus = async (fade = false) => {
         }
     }
 
+}
+
+// Assign to window after function is defined
+if (typeof window !== 'undefined') {
+    window.refreshServerStatus = refreshServerStatus
 }
 
 refreshMojangStatuses()
@@ -580,6 +652,15 @@ async function dlAsync(login = true) {
             loggerLanding.error('You must be logged into an account.')
             return
         }
+        
+        // Validate account before launch to ensure access token is fresh
+        setLaunchDetails(Lang.queryJS('landing.dlAsync.validatingAccount'))
+        const isValid = await getAuthManager().validateSelected()
+        if(!isValid) {
+            loggerLaunchSuite.warn('Account validation failed, but continuing launch...')
+        } else {
+            loggerLaunchSuite.info('Account validated successfully')
+        }
     }
 
     setLaunchDetails(Lang.queryJS('landing.dlAsync.pleaseWait'))
@@ -782,7 +863,7 @@ async function dlAsync(login = true) {
             }, 1000) // Check every second
 
             // Handle process close event
-            const onProcessClose = (code, signal) => {
+            const onProcessClose = async (code, signal) => {
                 loggerLaunchSuite.info('Game process closed.')
                 
                 // Clear button check interval
@@ -800,6 +881,11 @@ async function dlAsync(login = true) {
                 // Re-enable and show launch button when game closes
                 setLaunchEnabled(true)
                 toggleLaunchArea(false)
+                
+                // Restore server selection button text
+                const distro = await DistroAPI.getDistribution()
+                const serv = distro.getServerById(ConfigManager.getSelectedServer())
+                updateSelectedServer(serv)
             }
 
             // Init Discord Hook
@@ -924,17 +1010,23 @@ let newsLoadingListener = null
  * @param {boolean} val True to set loading animation, otherwise false.
  */
 function setNewsLoading(val){
+    // Check if nELoadSpan is available
+    const loadSpan = (typeof nELoadSpan !== 'undefined') ? nELoadSpan : null
+    if(!loadSpan) {
+        // Element not found, skip
+        return
+    }
     if(val){
         const nLStr = Lang.queryJS('landing.news.checking')
         let dotStr = '..'
-        nELoadSpan.innerHTML = nLStr + dotStr
+        loadSpan.innerHTML = nLStr + dotStr
         newsLoadingListener = setInterval(() => {
             if(dotStr.length >= 3){
                 dotStr = ''
             } else {
                 dotStr += '.'
             }
-            nELoadSpan.innerHTML = nLStr + dotStr
+            loadSpan.innerHTML = nLStr + dotStr
         }, 750)
     } else {
         if(newsLoadingListener != null){
@@ -1005,6 +1097,12 @@ async function digestMessage(str) {
  * content has finished loading and transitioning.
  */
 async function initNews(){
+    // Check if nELoadSpan is available (element might not exist or script not loaded)
+    // Access via window or check if variable exists in current scope
+    const loadSpan = (typeof nELoadSpan !== 'undefined') ? nELoadSpan : null
+    if(!loadSpan) {
+        return
+    }
 
     setNewsLoading(true)
 
