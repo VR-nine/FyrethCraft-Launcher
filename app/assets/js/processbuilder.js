@@ -133,97 +133,6 @@ class ProcessBuilder {
 
         logger.info('Launch Arguments:', loggableArgs)
 
-        // Detailed debug for Microsoft account authentication
-        if(this.authUser.type === 'microsoft') {
-            logger.info('=== Microsoft Account Authentication Debug ===')
-            logger.info('Account Data:')
-            logger.info('  UUID (raw):', this.authUser.uuid)
-            logger.info('  UUID (formatted):', formatUUID(this.authUser.uuid.trim()))
-            logger.info('  Display Name:', this.authUser.displayName)
-            logger.info('  Username:', this.authUser.username)
-            logger.info('  Access Token (first 30):', this.authUser.accessToken ? this.authUser.accessToken.substring(0, 30) + '...' : 'MISSING')
-            logger.info('  Access Token (length):', this.authUser.accessToken ? this.authUser.accessToken.length : 0)
-            logger.info('  Access Token Type:', typeof this.authUser.accessToken)
-            logger.info('  XUID from config:', this.authUser.microsoft?.xuid || 'MISSING')
-            logger.info('  Token Expires At:', this.authUser.expiresAt ? new Date(this.authUser.expiresAt).toISOString() : 'MISSING')
-            logger.info('  Token Expired:', this.authUser.expiresAt ? (new Date().getTime() >= this.authUser.expiresAt) : 'UNKNOWN')
-            
-            logger.info('Authentication Arguments in Launch:')
-            const authKeywords = ['auth_', '--accessToken', '--uuid', '--username', '--userType', '--clientId', '--xuid', 'user_type', 'clientid', 'auth_xuid', 'auth_uuid', 'auth_access_token', 'auth_player_name']
-            
-            for(let i = 0; i < args.length; i++) {
-                const arg = args[i]
-                if(typeof arg === 'string') {
-                    const isAuthArg = authKeywords.some(keyword => arg.includes(keyword))
-                    if(isAuthArg) {
-                        let displayValue = arg
-                        // If this is a flag argument, show the next value
-                        if(arg.startsWith('--') && i + 1 < args.length) {
-                            const nextArg = args[i + 1]
-                            if(typeof nextArg === 'string') {
-                                // Mask tokens
-                                if(arg.includes('accessToken') || arg.includes('token')) {
-                                    displayValue = `${arg} = ${nextArg.length > 20 ? nextArg.substring(0, 20) + '...' : nextArg} (length: ${nextArg.length})`
-                                } else {
-                                    displayValue = `${arg} = ${nextArg.length > 100 ? nextArg.substring(0, 100) + '...' : nextArg}`
-                                }
-                            } else {
-                                displayValue = `${arg} = ${nextArg}`
-                            }
-                        } else if(!arg.startsWith('--') && !arg.startsWith('${')) {
-                            // This might be a value, check if previous was auth-related
-                            if(i > 0 && typeof args[i-1] === 'string' && authKeywords.some(k => args[i-1].includes(k))) {
-                                if(arg.length > 100) {
-                                    displayValue = `[VALUE] ${arg.substring(0, 100)}... (length: ${arg.length})`
-                                } else {
-                                    displayValue = `[VALUE] ${arg}`
-                                }
-                            }
-                        }
-                        logger.info(`  [${i}] ${displayValue}`)
-                    }
-                } else if(typeof arg === 'object' && arg !== null) {
-                    // Check if object contains auth-related data
-                    const argStr = JSON.stringify(arg)
-                    if(authKeywords.some(keyword => argStr.includes(keyword))) {
-                        logger.info(`  [${i}] [OBJECT] ${argStr.substring(0, 200)}${argStr.length > 200 ? '...' : ''}`)
-                    }
-                }
-            }
-            
-            // Also check for ${auth_*} patterns that might not have been replaced
-            logger.info('Checking for unresolved ${auth_*} patterns:')
-            const unresolvedPatterns = args.filter(arg => typeof arg === 'string' && arg.includes('${auth_'))
-            if(unresolvedPatterns.length > 0) {
-                logger.warn('  Found unresolved patterns:', unresolvedPatterns)
-            } else {
-                logger.info('  No unresolved patterns found')
-            }
-            logger.info('=== End Microsoft Account Debug ===')
-        }
-
-        // Debug info for accounts
-        if(this.authUser.type === 'ely') {
-            logger.info('Ely.by Account Info:')
-            logger.info('  UUID:', this.authUser.uuid)
-            logger.info('  Username:', this.authUser.username)
-            logger.info('  Display Name:', this.authUser.displayName)
-            logger.info('  User Type:', this.authUser.type === 'microsoft' ? 'msa' : 'mojang')
-        } else if(this.authUser.type === 'microsoft' || this.authUser.type === 'mojang') {
-            logger.info(`${this.authUser.type === 'microsoft' ? 'Microsoft' : 'Mojang'} Account Info:`)
-            logger.info('  UUID (raw):', this.authUser.uuid)
-            logger.info('  UUID (formatted):', formatUUID(this.authUser.uuid))
-            logger.info('  UUID length:', this.authUser.uuid ? this.authUser.uuid.length : 0)
-            logger.info('  Username:', this.authUser.username)
-            logger.info('  Display Name:', this.authUser.displayName)
-            logger.info('  User Type:', this.authUser.type === 'microsoft' ? 'msa' : 'mojang')
-            logger.info('  Access Token:', this.authUser.accessToken ? `${this.authUser.accessToken.substring(0, 20)}...` : 'MISSING')
-            logger.info('  Access Token length:', this.authUser.accessToken ? this.authUser.accessToken.length : 0)
-            if(this.authUser.type === 'microsoft') {
-                logger.info('  Expires At:', this.authUser.expiresAt ? new Date(this.authUser.expiresAt).toISOString() : 'MISSING')
-                logger.info('  Token Expired:', this.authUser.expiresAt ? (new Date().getTime() >= this.authUser.expiresAt) : 'UNKNOWN')
-            }
-        }
 
         const child = child_process.spawn(ConfigManager.getJavaExecutable(this.server.rawServer.id), args, {
             cwd: this.gameDir,
@@ -537,15 +446,33 @@ class ProcessBuilder {
             }
 
             // 2. Issue Token
+            // Prepare request body
+            // Ensure UUID is in the correct format (with dashes) for Velocity
+            const formattedUuid = formatUUID(this.authUser.uuid.trim())
+            const requestBody = {
+                    challenge: challenge,
+                uuid: formattedUuid,
+                    name: this.authUser.displayName,
+                    userType: userType
+            }
+            
+            // Add XUID and accessToken for Microsoft accounts (server may need them for skin loading)
+            if(this.authUser.type === 'microsoft') {
+                // Add XUID if available
+                if(this.authUser.microsoft?.xuid) {
+                    requestBody.xuid = this.authUser.microsoft.xuid.toString()
+                }
+                
+                // Add accessToken so Velocity can load skin directly from Mojang API
+                if(this.authUser.accessToken) {
+                    requestBody.accessToken = this.authUser.accessToken
+                }
+            }
+            
             const issueRes = await fetch(`${baseUrl}/v1/issue`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    challenge: challenge,
-                    uuid: this.authUser.uuid,
-                    name: this.authUser.displayName,
-                    userType: userType
-                }),
+                body: JSON.stringify(requestBody),
                 signal: AbortSignal.timeout(timeout)
             })
 
@@ -789,13 +716,8 @@ class ProcessBuilder {
                             break
                         case 'auth_uuid':
                             // Ensure UUID is in the correct format with dashes for all account types
-                            // Mojang API returns UUID with dashes, Microsoft may return without dashes
                             const rawUuid = this.authUser.uuid.trim()
                             val = formatUUID(rawUuid)
-                            // Log UUID formatting for debugging
-                            if(rawUuid !== val) {
-                                logger.debug(`UUID formatted: "${rawUuid}" -> "${val}"`)
-                            }
                             break
                         case 'auth_access_token':
                         if (!this.authUser.accessToken) {
@@ -819,11 +741,9 @@ class ProcessBuilder {
                             if(xuid) {
                                 // Use XUID from XSTS response (could be xid or uhs)
                                 val = xuid.toString()
-                                logger.info(`Using XUID from Microsoft account: ${val}`)
                             } else {
                                 // Fallback to UUID without dashes if no XUID at all
                                 val = this.authUser.uuid.trim().replace(/-/g, '')
-                                logger.warn(`No XUID available, using UUID without dashes as --xuid: ${val}`)
                             }
                         } else {
                             // Return null for non-Microsoft accounts so the parameter is not included
@@ -912,7 +832,6 @@ class ProcessBuilder {
                     const replacement = resolvePlaceholder(key)
                     if(replacement != null) {
                         args[i] = replacement
-                        logger.debug(`Replaced placeholder ${args[i]} with ${replacement}`)
                     } else {
                         // Mark for removal - will be filtered out later
                         args[i] = null
@@ -1022,13 +941,8 @@ class ProcessBuilder {
                         break
                     case 'auth_uuid':
                         // Ensure UUID is in the correct format with dashes for all account types
-                        // Mojang API returns UUID with dashes, Microsoft may return without dashes
                         const rawUuidForge = this.authUser.uuid.trim()
                         val = formatUUID(rawUuidForge)
-                        // Log UUID formatting for debugging
-                        if(rawUuidForge !== val) {
-                            logger.debug(`UUID formatted: "${rawUuidForge}" -> "${val}"`)
-                        }
                         break
                     case 'auth_access_token':
                         if (!this.authUser.accessToken) {

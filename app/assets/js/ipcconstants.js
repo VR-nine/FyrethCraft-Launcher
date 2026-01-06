@@ -40,6 +40,6 @@ exports.ELY_CONFIG = {
 
 // Fyreth Configuration
 exports.FYRETH_CONFIG = {
-    // Должна совпадать с секретом на сервере (Velocity).
+    // Must match the secret on the server (Velocity).
     LAUNCHER_SECRET: '3b990d8c14eee501c605e197602495dd3ef5f4ac16b8fed909e267c8f56429c4'
 }
