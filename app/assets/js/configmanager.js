@@ -57,8 +57,7 @@ exports.getAbsoluteMinRAM = function(ram){
         return ram.minimum/1024
     } else {
         // Legacy behavior
-        const mem = os.totalmem()
-        return 6
+        return 4
     }
 }
 
@@ -72,9 +71,9 @@ function resolveSelectedRAM(ram) {
     if(ram?.recommended != null) {
         return `${ram.recommended}M`
     } else {
-        // Legacy behavior
-        const mem = os.totalmem()
-        return mem >= (8*1073741824) ? '8G' : '6G'
+        // Legacy behavior - use minimum RAM for stability
+        const minRAM = exports.getAbsoluteMinRAM(ram)
+        return `${minRAM}G`
     }
 }
 
@@ -578,9 +577,11 @@ function defaultJavaConfig(effectiveJavaOptions, ram) {
 }
 
 function defaultJavaConfig8(ram) {
+    // Set maxRAM equal to minRAM for stability
+    const minRAM = resolveSelectedRAM(ram)
     return {
-        minRAM: resolveSelectedRAM(ram),
-        maxRAM: resolveSelectedRAM(ram),
+        minRAM: minRAM,
+        maxRAM: minRAM,
         executable: null,
         jvmOptions: [
             '-XX:+UseConcMarkSweepGC',
@@ -592,9 +593,11 @@ function defaultJavaConfig8(ram) {
 }
 
 function defaultJavaConfig17(ram) {
+    // Set maxRAM equal to minRAM for stability
+    const minRAM = resolveSelectedRAM(ram)
     return {
-        minRAM: resolveSelectedRAM(ram),
-        maxRAM: resolveSelectedRAM(ram),
+        minRAM: minRAM,
+        maxRAM: minRAM,
         executable: null,
         jvmOptions: [
             '-XX:+UnlockExperimentalVMOptions',

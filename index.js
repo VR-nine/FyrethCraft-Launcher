@@ -47,9 +47,10 @@ function initAutoUpdater(event, data) {
     if(isDev){
         autoUpdater.autoInstallOnAppQuit = false
         autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml')
-    }
-    if(process.platform === 'darwin'){
+    } else {
+        // In production: automatically download and install updates on app quit
         autoUpdater.autoDownload = true
+        autoUpdater.autoInstallOnAppQuit = true
     }
     autoUpdater.on('update-available', (info) => {
         event.sender.send('autoUpdateNotification', 'update-available', info)
