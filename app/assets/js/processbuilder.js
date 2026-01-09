@@ -905,6 +905,46 @@ class ProcessBuilder {
         }
         args = filteredArgs
 
+        // Helper function to find safe insertion point for JVM arguments
+        // This works on all platforms to ensure JVM args are inserted before -cp or main class
+        const findJVMArgInsertIndex = () => {
+            // First, try to find -cp and insert before it
+            const cpIndex = args.findIndex(arg => arg === '-cp')
+            if(cpIndex > 0){
+                return cpIndex
+            }
+            
+            // If no -cp, find the main class (first non-flag argument that doesn't start with -)
+            const mainClassIndex = args.findIndex(arg => typeof arg === 'string' && !arg.startsWith('-') && !arg.startsWith('--'))
+            if(mainClassIndex > 0){
+                return mainClassIndex
+            }
+            
+            // Fallback: insert at the end
+            return args.length
+        }
+        
+        // Ensure java.library.path is set on all platforms
+        // This should be set via natives_directory placeholder, but verify as a safety measure
+        const hasLibraryPath = args.some(arg => typeof arg === 'string' && arg.startsWith('-Djava.library.path='))
+        if(!hasLibraryPath){
+            const insertIndex = findJVMArgInsertIndex()
+            args.splice(insertIndex, 0, '-Djava.library.path=' + tempNativePath)
+            logger.warn('[ProcessBuilder]: natives_directory placeholder was not resolved, added -Djava.library.path manually')
+        }
+        
+        // On macOS, LWJGL requires explicit library path setting
+        // This is a standard practice for macOS, not a workaround
+        // See: https://github.com/LWJGL/lwjgl3/issues/481
+        // On Windows and Linux, -Djava.library.path is usually sufficient
+        if(process.platform === 'darwin'){
+            const hasLWJGLPath = args.some(arg => typeof arg === 'string' && arg.startsWith('-Dorg.lwjgl.librarypath='))
+            if(!hasLWJGLPath){
+                const insertIndex = findJVMArgInsertIndex()
+                args.splice(insertIndex, 0, '-Dorg.lwjgl.librarypath=' + tempNativePath)
+            }
+        }
+
         return args
     }
 
@@ -1210,6 +1250,20 @@ class ProcessBuilder {
         // This ensures all files are extracted before the process is launched
         if(extractPromises.length > 0){
             await Promise.all(extractPromises)
+            logger.info(`[ProcessBuilder]: Extracted ${extractPromises.length} native library files to ${tempNativePath}`)
+            
+            // On macOS, verify that LWJGL libraries are present
+            if(process.platform === 'darwin'){
+                const lwjglLibs = ['liblwjgl.dylib', 'liblwjgl_opengl.dylib', 'liblwjgl_glfw.dylib']
+                for(const lib of lwjglLibs){
+                    const libPath = path.join(tempNativePath, lib)
+                    if(fs.existsSync(libPath)){
+                        logger.debug(`[ProcessBuilder]: Found LWJGL library: ${lib}`)
+                    } else {
+                        logger.warn(`[ProcessBuilder]: LWJGL library not found: ${lib} at ${libPath}`)
+                    }
+                }
+            }
         }
 
         return libs
