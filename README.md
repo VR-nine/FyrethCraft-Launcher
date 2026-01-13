@@ -134,50 +134,38 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### Publish
 
-#### Автоматическая публикация
-```
-export GH_TOKEN=your_github_token
+#### Automatic Publishing
 
-npm run publish        # Все платформы
-npm run publish:win    # Только Windows
-npm run publish:mac    # Только macOS
-npm run publish:linux  # Только Linux
-```
+**Important:** Before publishing, you must commit and push all changes to the repository:
 
-#### Ручная публикация
-
-1. Соберите проект: `npm run dist`
-2. Получите release notes для текущей версии: `npm run release-notes`
-3. Создайте релиз на GitHub с тегом `v{version}` (например, `v0.1.4`)
-4. Скопируйте release notes из вывода команды в описание релиза
-5. Загрузите все файлы из папки `dist` в релиз
-
-**Важно:** При ручной публикации обязательно загрузите файлы метаданных (`.yml` файлы) для работы автоматических обновлений.
-
-### Changelog
-
-Все изменения записываются в файл `CHANGELOG.md` в формате [Keep a Changelog](https://keepachangelog.com/).
-
-**Формат:**
-```markdown
-## [Версия] - ГГГГ-ММ-ДД
-
-### Добавлено
-- Новые функции
-
-### Изменено
-- Изменения в существующих функциях
-
-### Исправлено
-- Исправления багов
-```
-
-**Получить release notes для текущей версии:**
 ```bash
-npm run release-notes
+# 1. Commit all changes
+git add .
+git commit -m "your commit message"
+git push origin master
+
+# 2. Ensure GitHub token is configured in .env file
+# GH_TOKEN=your_github_token
+
+# 3. Run publish
+npm run publish        # macOS (locally) + automatically Windows and Linux via GitHub Actions
+npm run publish:win    # Windows only (requires Windows environment)
+npm run publish:mac    # macOS only
+npm run publish:linux  # Linux only (requires Linux environment)
 ```
 
-Этот вывод можно скопировать в описание GitHub релиза при ручной публикации.
+**How it works:**
+- `npm run publish` publishes macOS version locally
+- Then automatically creates tag `v{version}` and pushes it to GitHub
+- GitHub Actions automatically builds and publishes versions for Windows and Linux
+
+#### Manual Publishing
+
+1. Build the project: `npm run dist`
+2. Create a release on GitHub with tag `v{version}` (e.g., `v0.1.4`)
+3. Upload all files from the `dist` folder to the release
+
+**Important:** When publishing manually, be sure to upload metadata files (`.yml` files) for automatic updates to work.
 
 ### Visual Studio Code
 
