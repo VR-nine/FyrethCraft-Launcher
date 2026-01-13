@@ -22,7 +22,7 @@ jobs:
           python-version: 3.x
       - run: npm ci
       - name: Publish macOS
-        run: electron-builder build --publish always -m
+        run: npx electron-builder build --publish always -m
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -43,7 +43,7 @@ jobs:
           python-version: 3.x
       - run: npm ci
       - name: Publish Linux
-        run: electron-builder build --publish always -l
+        run: npx electron-builder build --publish always -l
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -64,6 +64,6 @@ jobs:
           python-version: 3.x
       - run: npm ci
       - name: Publish Windows
-        run: electron-builder build --publish always -w
+        run: npx electron-builder build --publish always -w
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
