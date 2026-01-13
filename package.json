@@ -1,6 +1,6 @@
 {
   "name": "fyrethcraft-launcher",
-  "version": "0.1.3",
+  "version": "0.1.41",
   "productName": "FyrethCraft Launcher",
   "description": "Modded FyrethCraft Minecraft Launcher",
   "author": "VR-nine",
@@ -17,6 +17,11 @@
     "dist:win": "npm run dist -- -w",
     "dist:mac": "npm run dist -- -m",
     "dist:linux": "npm run dist -- -l",
+    "publish": "electron-builder build --publish always",
+    "publish:win": "npm run publish -- -w",
+    "publish:mac": "npm run publish -- -m",
+    "publish:linux": "npm run publish -- -l",
+    "release-notes": "node scripts/get-release-notes.js",
     "lint": "eslint --config .eslintrc.json ."
   },
   "engines": {

@@ -132,6 +132,53 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 ---
 
+### Publish
+
+#### Автоматическая публикация
+```
+export GH_TOKEN=your_github_token
+
+npm run publish        # Все платформы
+npm run publish:win    # Только Windows
+npm run publish:mac    # Только macOS
+npm run publish:linux  # Только Linux
+```
+
+#### Ручная публикация
+
+1. Соберите проект: `npm run dist`
+2. Получите release notes для текущей версии: `npm run release-notes`
+3. Создайте релиз на GitHub с тегом `v{version}` (например, `v0.1.4`)
+4. Скопируйте release notes из вывода команды в описание релиза
+5. Загрузите все файлы из папки `dist` в релиз
+
+**Важно:** При ручной публикации обязательно загрузите файлы метаданных (`.yml` файлы) для работы автоматических обновлений.
+
+### Changelog
+
+Все изменения записываются в файл `CHANGELOG.md` в формате [Keep a Changelog](https://keepachangelog.com/).
+
+**Формат:**
+```markdown
+## [Версия] - ГГГГ-ММ-ДД
+
+### Добавлено
+- Новые функции
+
+### Изменено
+- Изменения в существующих функциях
+
+### Исправлено
+- Исправления багов
+```
+
+**Получить release notes для текущей версии:**
+```bash
+npm run release-notes
+```
+
+Этот вывод можно скопировать в описание GitHub релиза при ручной публикации.
+
 ### Visual Studio Code
 
 All development of the launcher should be done using [Visual Studio Code][vscode].

@@ -2,6 +2,10 @@
 const fs     = require('fs-extra')
 const os     = require('os')
 const semver = require('semver')
+const {ipcRenderer, shell} = require('electron')
+const remote = require('@electron/remote')
+const isDev  = require('./assets/js/isdev')
+const Lang   = require('./assets/js/langloader')
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
 const { MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR } = require('./assets/js/ipcconstants')
@@ -1706,6 +1710,31 @@ async function prepareSettings(first = false) {
     prepareAccountsTab()
     await prepareJavaTab()
     prepareAboutTab()
+}
+
+// Initialize version information when DOM is ready
+if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', () => {
+        // Set version immediately when DOM is ready
+        const aboutVersionEl = document.getElementById('settingsAboutCurrentVersionValue')
+        const updateVersionEl = document.getElementById('settingsUpdateVersionValue')
+        if(aboutVersionEl && !aboutVersionEl.innerHTML){
+            aboutVersionEl.innerHTML = remote.app.getVersion()
+        }
+        if(updateVersionEl && !updateVersionEl.innerHTML){
+            updateVersionEl.innerHTML = remote.app.getVersion()
+        }
+    })
+} else {
+    // DOM already loaded, set version immediately
+    const aboutVersionEl = document.getElementById('settingsAboutCurrentVersionValue')
+    const updateVersionEl = document.getElementById('settingsUpdateVersionValue')
+    if(aboutVersionEl && !aboutVersionEl.innerHTML){
+        aboutVersionEl.innerHTML = remote.app.getVersion()
+    }
+    if(updateVersionEl && !updateVersionEl.innerHTML){
+        updateVersionEl.innerHTML = remote.app.getVersion()
+    }
 }
 
 // Prepare the settings UI on startup.

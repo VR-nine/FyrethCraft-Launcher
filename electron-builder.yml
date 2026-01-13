@@ -33,6 +33,10 @@ mac:
       arch:
         - 'x64'
         - 'arm64'
+    - target: 'zip'
+      arch:
+        - 'x64'
+        - 'arm64'
   artifactName: '${productName}-setup-${version}-${arch}.${ext}'
   category: 'public.app-category.games'
 

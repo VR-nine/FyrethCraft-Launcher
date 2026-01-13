@@ -929,7 +929,17 @@ class ProcessBuilder {
         const hasLibraryPath = args.some(arg => typeof arg === 'string' && arg.startsWith('-Djava.library.path='))
         if(!hasLibraryPath){
             const insertIndex = findJVMArgInsertIndex()
-            args.splice(insertIndex, 0, '-Djava.library.path=' + tempNativePath)
+            // On macOS, insert after -XstartOnFirstThread if it exists, otherwise use calculated index
+            if(process.platform === 'darwin'){
+                const xstartIndex = args.findIndex(arg => arg === '-XstartOnFirstThread')
+                if(xstartIndex >= 0){
+                    args.splice(xstartIndex + 1, 0, '-Djava.library.path=' + tempNativePath)
+                } else {
+                    args.splice(insertIndex, 0, '-Djava.library.path=' + tempNativePath)
+                }
+            } else {
+                args.splice(insertIndex, 0, '-Djava.library.path=' + tempNativePath)
+            }
             logger.warn('[ProcessBuilder]: natives_directory placeholder was not resolved, added -Djava.library.path manually')
         }
         
@@ -940,8 +950,21 @@ class ProcessBuilder {
         if(process.platform === 'darwin'){
             const hasLWJGLPath = args.some(arg => typeof arg === 'string' && arg.startsWith('-Dorg.lwjgl.librarypath='))
             if(!hasLWJGLPath){
-                const insertIndex = findJVMArgInsertIndex()
-                args.splice(insertIndex, 0, '-Dorg.lwjgl.librarypath=' + tempNativePath)
+                // On macOS, insert after -XstartOnFirstThread and -Djava.library.path if they exist
+                const xstartIndex = args.findIndex(arg => arg === '-XstartOnFirstThread')
+                const libraryPathIndex = args.findIndex(arg => typeof arg === 'string' && arg.startsWith('-Djava.library.path='))
+                
+                if(libraryPathIndex >= 0){
+                    // Insert right after -Djava.library.path
+                    args.splice(libraryPathIndex + 1, 0, '-Dorg.lwjgl.librarypath=' + tempNativePath)
+                } else if(xstartIndex >= 0){
+                    // Insert after -XstartOnFirstThread
+                    args.splice(xstartIndex + 1, 0, '-Dorg.lwjgl.librarypath=' + tempNativePath)
+                } else {
+                    // Fallback to calculated index
+                    const insertIndex = findJVMArgInsertIndex()
+                    args.splice(insertIndex, 0, '-Dorg.lwjgl.librarypath=' + tempNativePath)
+                }
             }
         }
 
@@ -1257,9 +1280,7 @@ class ProcessBuilder {
                 const lwjglLibs = ['liblwjgl.dylib', 'liblwjgl_opengl.dylib', 'liblwjgl_glfw.dylib']
                 for(const lib of lwjglLibs){
                     const libPath = path.join(tempNativePath, lib)
-                    if(fs.existsSync(libPath)){
-                        logger.debug(`[ProcessBuilder]: Found LWJGL library: ${lib}`)
-                    } else {
+                    if(!fs.existsSync(libPath)){
                         logger.warn(`[ProcessBuilder]: LWJGL library not found: ${lib} at ${libPath}`)
                     }
                 }
