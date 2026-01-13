@@ -40,7 +40,9 @@ if(!isDev){
         switch(arg){
             case 'checking-for-update':
                 loggerAutoUpdater.info('Checking for update..')
-                settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.checkingForUpdateButton'), true)
+                if (typeof window !== 'undefined' && window.settingsUpdateButtonStatus) {
+                    window.settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.checkingForUpdateButton'), true)
+                }
                 break
             case 'update-available':
                 loggerAutoUpdater.info('New update available', info.version)
@@ -50,20 +52,26 @@ if(!isDev){
                     showUpdateUI(info)
                 }
                 
-                populateSettingsUpdateInformation(info)
+                if (typeof window !== 'undefined' && window.populateSettingsUpdateInformation) {
+                    window.populateSettingsUpdateInformation(info)
+                }
                 break
             case 'update-downloaded':
                 loggerAutoUpdater.info('Update ' + info.version + ' ready to be installed.')
-                settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.installNowButton'), false, () => {
-                    if(!isDev){
-                        ipcRenderer.send('autoUpdateAction', 'installUpdateNow')
-                    }
-                })
+                if (typeof window !== 'undefined' && window.settingsUpdateButtonStatus) {
+                    window.settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.installNowButton'), false, () => {
+                        if(!isDev){
+                            ipcRenderer.send('autoUpdateAction', 'installUpdateNow')
+                        }
+                    })
+                }
                 showUpdateUI(info)
                 break
             case 'update-not-available':
                 loggerAutoUpdater.info('No new update found.')
-                settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.checkForUpdatesButton'))
+                if (typeof window !== 'undefined' && window.settingsUpdateButtonStatus) {
+                    window.settingsUpdateButtonStatus(Lang.queryJS('uicore.autoUpdate.checkForUpdatesButton'))
+                }
                 break
             case 'ready':
                 updateCheckListener = setInterval(() => {

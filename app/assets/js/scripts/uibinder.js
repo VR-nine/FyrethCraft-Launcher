@@ -87,7 +87,17 @@ async function showMainUI(data){
         ipcRenderer.send('autoUpdateAction', 'initAutoUpdater', ConfigManager.getAllowPrerelease())
     }
 
-    await prepareSettings(true)
+    // prepareSettings may not be loaded yet, check if available
+    if (typeof window !== 'undefined' && window.prepareSettings) {
+        await window.prepareSettings(true)
+    } else {
+        // Fallback: try to call directly if function exists
+        if (typeof prepareSettings === 'function') {
+            await prepareSettings(true)
+        } else {
+            console.warn('prepareSettings not available yet')
+        }
+    }
     window.updateSelectedServer(data.getServerById(ConfigManager.getSelectedServer()))
     if (typeof window.refreshServerStatus === 'function') {
         window.refreshServerStatus()

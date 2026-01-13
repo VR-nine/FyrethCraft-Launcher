@@ -2,7 +2,11 @@
 const fs     = require('fs-extra')
 const os     = require('os')
 const semver = require('semver')
-const {ipcRenderer, shell} = require('electron')
+// Use electron module - each script has its own scope in Electron
+// but we use var to avoid potential "already declared" errors
+var electron = require('electron')
+var ipcRenderer = electron.ipcRenderer
+var shell = electron.shell
 const remote = require('@electron/remote')
 const isDev  = require('./assets/js/isdev')
 const Lang   = require('./assets/js/langloader')
@@ -1640,11 +1644,17 @@ const settingsUpdateActionButton   = document.getElementById('settingsUpdateActi
  * @param {function} handler Optional. New button event handler.
  */
 function settingsUpdateButtonStatus(text, disabled = false, handler = null){
+    if(!settingsUpdateActionButton) return // Button not yet available
     settingsUpdateActionButton.innerHTML = text
     settingsUpdateActionButton.disabled = disabled
     if(handler != null){
         settingsUpdateActionButton.onclick = handler
     }
+}
+
+// Make function globally available
+if (typeof window !== 'undefined') {
+    window.settingsUpdateButtonStatus = settingsUpdateButtonStatus
 }
 
 /**
@@ -1680,6 +1690,11 @@ function populateSettingsUpdateInformation(data){
     }
 }
 
+// Make function globally available
+if (typeof window !== 'undefined') {
+    window.populateSettingsUpdateInformation = populateSettingsUpdateInformation
+}
+
 /**
  * Prepare update tab for display.
  * 
@@ -1710,6 +1725,11 @@ async function prepareSettings(first = false) {
     prepareAccountsTab()
     await prepareJavaTab()
     prepareAboutTab()
+}
+
+// Make function globally available
+if (typeof window !== 'undefined') {
+    window.prepareSettings = prepareSettings
 }
 
 // Initialize version information when DOM is ready
