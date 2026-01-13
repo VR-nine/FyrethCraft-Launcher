@@ -12,11 +12,11 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: macos-latest
-            command: publish:mac
+            platform_flag: -m
           - os: ubuntu-latest
-            command: publish:linux
+            platform_flag: -l
           - os: windows-latest
-            command: publish:win
+            platform_flag: -w
 
     runs-on: ${{ matrix.os }}
 
@@ -36,6 +36,12 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run ${{ matrix.command }}
+      - name: Show platform info
+        run: |
+          echo "Platform: ${{ matrix.os }}"
+          echo "Flag: ${{ matrix.platform_flag }}"
+
+      - name: Publish
+        run: electron-builder build --publish always ${{ matrix.platform_flag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
