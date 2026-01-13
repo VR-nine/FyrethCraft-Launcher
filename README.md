@@ -163,11 +163,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    npm run publish
    ```
 
-**What happens:**
+**What happens automatically:**
 - `npm run publish` builds macOS version locally and publishes it to GitHub
-- Then automatically creates tag `v{version}` (e.g., `v0.1.47`) and pushes it to GitHub
+- **Git tag `v{version}` (e.g., `v0.1.47`) is automatically created and pushed to GitHub** - you don't need to create it manually!
 - GitHub Actions automatically detects the tag and builds/publishes versions for Windows and Linux
 - All files appear in the GitHub release within a few minutes
+
+**Note:** The tag is created automatically by the `create-tag.js` script. Make sure all your changes are committed and pushed before running `npm run publish`, otherwise the script will fail with an error.
 
 **Platform-specific publishing:**
 ```bash
