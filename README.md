@@ -136,28 +136,45 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 #### Automatic Publishing
 
-**Important:** Before publishing, you must commit and push all changes to the repository:
+**Step-by-step guide:**
 
+1. **Update version in `package.json`:**
+   ```json
+   {
+     "version": "0.1.47"  // Change this to your new version
+   }
+   ```
+
+2. **Commit and push all changes:**
+   ```bash
+   git add .
+   git commit -m "chore: bump version to 0.1.47"
+   git push origin master
+   ```
+
+3. **Ensure GitHub token is configured in `.env` file:**
+   ```bash
+   # Create .env file if it doesn't exist
+   echo "GH_TOKEN=your_github_token" > .env
+   ```
+
+4. **Run publish:**
+   ```bash
+   npm run publish
+   ```
+
+**What happens:**
+- `npm run publish` builds macOS version locally and publishes it to GitHub
+- Then automatically creates tag `v{version}` (e.g., `v0.1.47`) and pushes it to GitHub
+- GitHub Actions automatically detects the tag and builds/publishes versions for Windows and Linux
+- All files appear in the GitHub release within a few minutes
+
+**Platform-specific publishing:**
 ```bash
-# 1. Commit all changes
-git add .
-git commit -m "your commit message"
-git push origin master
-
-# 2. Ensure GitHub token is configured in .env file
-# GH_TOKEN=your_github_token
-
-# 3. Run publish
-npm run publish        # macOS (locally) + automatically Windows and Linux via GitHub Actions
 npm run publish:win    # Windows only (requires Windows environment)
 npm run publish:mac    # macOS only
 npm run publish:linux  # Linux only (requires Linux environment)
 ```
-
-**How it works:**
-- `npm run publish` publishes macOS version locally
-- Then automatically creates tag `v{version}` and pushes it to GitHub
-- GitHub Actions automatically builds and publishes versions for Windows and Linux
 
 #### Manual Publishing
 
