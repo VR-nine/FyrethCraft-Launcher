@@ -8,15 +8,19 @@ on:
 jobs:
   publish:
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: macos-latest
             platform_flag: -m
+            is_first: true
           - os: ubuntu-latest
             platform_flag: -l
+            is_first: false
           - os: windows-latest
             platform_flag: -w
+            is_first: false
 
     runs-on: ${{ matrix.os }}
 
@@ -43,6 +47,7 @@ jobs:
           echo "Platform: ${{ matrix.os }}"
           echo "Flag: ${{ matrix.platform_flag }}"
           echo "Version: $(node -p "require('./package.json').version")"
+          echo "Is first: ${{ matrix.is_first }}"
 
       - name: Publish
         run: electron-builder build --publish always ${{ matrix.platform_flag }}
