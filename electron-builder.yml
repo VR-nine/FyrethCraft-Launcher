@@ -59,3 +59,4 @@ publish:
   provider: github
   owner: VR-nine
   repo: FyrethCraft-Launcher
+  releaseType: release

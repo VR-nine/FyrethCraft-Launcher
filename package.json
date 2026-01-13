@@ -1,6 +1,6 @@
 {
   "name": "fyrethcraft-launcher",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "productName": "FyrethCraft Launcher",
   "description": "Modded FyrethCraft Minecraft Launcher",
   "author": "VR-nine",
@@ -17,11 +17,10 @@
     "dist:win": "npm run dist -- -w",
     "dist:mac": "npm run dist -- -m",
     "dist:linux": "npm run dist -- -l",
-    "publish": "electron-builder build --publish always",
-    "publish:win": "npm run publish -- -w",
-    "publish:mac": "npm run publish -- -m",
-    "publish:linux": "npm run publish -- -l",
-    "release-notes": "node scripts/get-release-notes.js",
+    "publish": "dotenv -e .env -- electron-builder build --publish always && node scripts/create-tag.js",
+    "publish:win": "dotenv -e .env -- electron-builder build --publish always -w",
+    "publish:mac": "dotenv -e .env -- electron-builder build --publish always -m",
+    "publish:linux": "dotenv -e .env -- electron-builder build --publish always -l",
     "lint": "eslint --config .eslintrc.json ."
   },
   "engines": {
@@ -45,6 +44,7 @@
     "toml": "^3.0.0"
   },
   "devDependencies": {
+    "dotenv-cli": "^11.0.0",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "eslint": "^8.57.1"
