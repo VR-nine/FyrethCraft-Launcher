@@ -60,4 +60,3 @@ publish:
   owner: VR-nine
   repo: FyrethCraft-Launcher
   releaseType: release
-  draft: false
