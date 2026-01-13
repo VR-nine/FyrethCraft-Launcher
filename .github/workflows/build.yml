@@ -28,6 +28,7 @@ jobs:
 
   publish-linux:
     needs: publish-mac
+    if: success()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -49,6 +50,7 @@ jobs:
 
   publish-win:
     needs: publish-mac
+    if: success()
     runs-on: windows-latest
     permissions:
       contents: write
