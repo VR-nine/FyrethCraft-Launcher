@@ -6,51 +6,64 @@ on:
       - 'v*'
 
 jobs:
-  publish:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: macos-latest
-            platform_flag: -m
-            is_first: true
-          - os: ubuntu-latest
-            platform_flag: -l
-            is_first: false
-          - os: windows-latest
-            platform_flag: -w
-            is_first: false
-
-    runs-on: ${{ matrix.os }}
-
+  publish-mac:
+    runs-on: macos-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - uses: actions/setup-node@v3
         with:
           node-version: 20
-
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
-
       - run: npm ci
-
-      - name: Show platform info
-        run: |
-          echo "Platform: ${{ matrix.os }}"
-          echo "Flag: ${{ matrix.platform_flag }}"
-          echo "Version: $(node -p "require('./package.json').version")"
-          echo "Is first: ${{ matrix.is_first }}"
-
-      - name: Publish
-        run: electron-builder build --publish always ${{ matrix.platform_flag }}
+      - name: Publish macOS
+        run: electron-builder build --publish always -m
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: false
+
+  publish-linux:
+    needs: publish-mac
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - run: npm ci
+      - name: Publish Linux
+        run: electron-builder build --publish always -l
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-win:
+    needs: publish-mac
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - run: npm ci
+      - name: Publish Windows
+        run: electron-builder build --publish always -w
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
