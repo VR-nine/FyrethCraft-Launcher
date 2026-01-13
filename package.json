@@ -17,7 +17,7 @@
     "dist:win": "npm run dist -- -w",
     "dist:mac": "npm run dist -- -m",
     "dist:linux": "npm run dist -- -l",
-    "publish": "dotenv -e .env -- electron-builder build --publish always && node scripts/create-tag.js",
+    "publish": "dotenv -e .env -- electron-builder build && node scripts/create-tag.js",
     "publish:win": "dotenv -e .env -- electron-builder build --publish always -w",
     "publish:mac": "dotenv -e .env -- electron-builder build --publish always -m",
     "publish:linux": "dotenv -e .env -- electron-builder build --publish always -l",
