@@ -29,13 +29,42 @@ function formatUUID(uuid) {
 }
 
 /**
+ * Get the actual system architecture, not the process architecture.
+ * On macOS, process.arch might be x64 if Electron runs under Rosetta,
+ * but we need the actual system architecture (arm64 for Apple Silicon).
+ * 
+ * @returns {string} System architecture (arm64, x64, etc.)
+ */
+function getSystemArchitecture() {
+    // Use os.arch() which returns the actual system architecture
+    // On macOS, this correctly returns 'arm64' for Apple Silicon, even if process.arch is x64
+    const systemArch = os.arch()
+    
+    // On macOS, double-check with uname if os.arch() seems wrong
+    if (process.platform === 'darwin') {
+        try {
+            const unameResult = child_process.execSync('uname -m', { encoding: 'utf8', timeout: 1000 }).trim()
+            if (unameResult === 'arm64' && systemArch !== 'arm64') {
+                logger.debug(`[ProcessBuilder]: System architecture mismatch: os.arch()=${systemArch}, uname -m=${unameResult}, using arm64`)
+                return 'arm64'
+            }
+        } catch (err) {
+            // If uname fails, fall back to os.arch()
+            logger.debug(`[ProcessBuilder]: Could not check uname -m, using os.arch()=${systemArch}`)
+        }
+    }
+    
+    return systemArch
+}
+
+/**
  * Normalize architecture string for Mojang manifest format.
  * 
  * Mojang uses different architecture names than Node.js:
  * - Node.js: 'arm64' -> Mojang: 'aarch64' (macOS/Linux ARM)
  * - Node.js: 'x64' -> Mojang: 'x64' (Windows) or 'x86_64' (macOS/Linux)
  * 
- * @param {string} arch - Architecture from process.arch
+ * @param {string} arch - Architecture from process.arch or getSystemArchitecture()
  * @param {string} platform - Platform from process.platform
  * @param {boolean} forMojangManifest - If true, return Mojang format; if false, return normalized for comparison
  * @returns {string} Normalized architecture string
@@ -92,7 +121,8 @@ function compareArchitecture(arch1, arch2, platform = process.platform) {
     const norm1 = normalizeArchitecture(arch1, platform, false)
     const norm2 = normalizeArchitecture(arch2, platform, false)
     const match = norm1 === norm2
-    if (platform === 'darwin' && process.arch === 'arm64') {
+    const systemArch = getSystemArchitecture()
+    if (platform === 'darwin' && systemArch === 'arm64') {
         logger.debug(`[ProcessBuilder]: Architecture comparison: ${arch1} (normalized: ${norm1}) vs ${arch2} (normalized: ${norm2}) = ${match}`)
     }
     return match
@@ -1241,17 +1271,19 @@ class ProcessBuilder {
                 if(lib.natives != null) {
                     // Extract the native library.
                     const exclusionArr = lib.extract != null ? lib.extract.exclude : ['META-INF/']
+                    // Get actual system architecture (not process.arch which might be x64 under Rosetta)
+                    const systemArch = getSystemArchitecture()
                     // Normalize architecture for Mojang manifest format
-                    const archStr = normalizeArchitecture(process.arch, process.platform, true)
+                    const archStr = normalizeArchitecture(systemArch, process.platform, true)
                     const nativeKey = lib.natives[getMojangOS()]
                     if (!nativeKey) {
                         continue // Skip if no native for this OS
                     }
                     const classifierKey = nativeKey.replace('${arch}', archStr)
-                    logger.debug(`[ProcessBuilder]: Pre-1.19 native: OS=${getMojangOS()}, process.arch=${process.arch}, normalized=${archStr}, classifierKey=${classifierKey}`)
+                    logger.debug(`[ProcessBuilder]: Pre-1.19 native: OS=${getMojangOS()}, systemArch=${systemArch} (process.arch=${process.arch}), normalized=${archStr}, classifierKey=${classifierKey}`)
                     
                     // Additional strict check for macOS arm64 to prevent x86_64 libraries
-                    if (process.platform === 'darwin' && process.arch === 'arm64') {
+                    if (process.platform === 'darwin' && systemArch === 'arm64') {
                         // For macOS arm64, classifierKey must contain 'aarch64', not 'x86_64' or 'x64'
                         if (classifierKey.includes('x86_64') || classifierKey.includes('x64')) {
                             logger.debug(`[ProcessBuilder]: Pre-1.19: Skipping library ${lib.name} - x86_64/x64 classifier not compatible with arm64 Mac (classifierKey: ${classifierKey})`)
@@ -1266,7 +1298,7 @@ class ProcessBuilder {
                     const artifact = lib.downloads.classifiers[classifierKey]
                     if (!artifact) {
                         // Try alternative classifier keys for macOS arm64
-                        if (process.platform === 'darwin' && process.arch === 'arm64') {
+                        if (process.platform === 'darwin' && systemArch === 'arm64') {
                             const altClassifierKey = nativeKey.replace('${arch}', 'aarch64')
                             logger.debug(`[ProcessBuilder]: Pre-1.19: Trying alternative classifier key for arm64: ${altClassifierKey}`)
                             const altArtifact = lib.downloads.classifiers[altClassifierKey]
@@ -1359,13 +1391,15 @@ class ProcessBuilder {
                         continue
                     }
 
+                    // Get actual system architecture (not process.arch which might be x64 under Rosetta)
+                    const systemArch = getSystemArchitecture()
                     // Compare architectures using normalized comparison
                     // This handles differences between Mojang format (aarch64) and Node.js format (arm64)
-                    const archMatch = compareArchitecture(arch, process.arch, process.platform)
-                    logger.debug(`[ProcessBuilder]: 1.19+ native check: lib.name=${lib.name}, OS=${osFromName}, extracted arch=${arch}, process.arch=${process.arch}, match=${archMatch}`)
+                    const archMatch = compareArchitecture(arch, systemArch, process.platform)
+                    logger.debug(`[ProcessBuilder]: 1.19+ native check: lib.name=${lib.name}, OS=${osFromName}, extracted arch=${arch}, systemArch=${systemArch} (process.arch=${process.arch}), match=${archMatch}`)
                     
                     // Additional strict check for macOS arm64 to prevent x86_64 libraries
-                    if (process.platform === 'darwin' && process.arch === 'arm64') {
+                    if (process.platform === 'darwin' && systemArch === 'arm64') {
                         // For macOS arm64, we must have aarch64 or arm64, never x86_64 or x64
                         if (arch === 'x86_64' || arch === 'x64') {
                             logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - x86_64/x64 not compatible with arm64 Mac`)
@@ -1379,10 +1413,10 @@ class ProcessBuilder {
                     }
                     
                     if(!archMatch) {
-                        logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - architecture mismatch (${arch} vs ${process.arch})`)
+                        logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - architecture mismatch (${arch} vs ${systemArch})`)
                         continue
                     }
-                    logger.info(`[ProcessBuilder]: Using library ${lib.name} for architecture ${arch} on ${process.platform} (${process.arch})`)
+                    logger.info(`[ProcessBuilder]: Using library ${lib.name} for architecture ${arch} on ${process.platform} (systemArch=${systemArch}, process.arch=${process.arch})`)
 
                     // Extract the native library.
                     const exclusionArr = lib.extract != null ? lib.extract.exclude : ['META-INF/', '.git', '.sha1']
@@ -1459,7 +1493,7 @@ class ProcessBuilder {
                             
                             // Verify it matches expected architecture
                             // Check for architecture in file info (handles both arm64 and aarch64 naming)
-                            const expectedArch = process.arch
+                            const expectedArch = getSystemArchitecture()
                             const isArm64 = expectedArch === 'arm64'
                             const isX64 = expectedArch === 'x64'
                             

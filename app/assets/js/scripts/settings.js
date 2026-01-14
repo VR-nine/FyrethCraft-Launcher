@@ -8,7 +8,7 @@ var electron = require('electron')
 var ipcRenderer = electron.ipcRenderer
 var shell = electron.shell
 var remote = require('@electron/remote')
-const isDev  = require('./assets/js/isdev')
+var isDev  = require('./assets/js/isdev')
 const Lang   = require('./assets/js/langloader')
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
