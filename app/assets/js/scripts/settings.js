@@ -7,7 +7,7 @@ const semver = require('semver')
 var electron = require('electron')
 var ipcRenderer = electron.ipcRenderer
 var shell = electron.shell
-const remote = require('@electron/remote')
+var remote = require('@electron/remote')
 const isDev  = require('./assets/js/isdev')
 const Lang   = require('./assets/js/langloader')
 
