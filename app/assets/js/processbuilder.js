@@ -61,10 +61,18 @@ function normalizeArchitecture(arch, platform = process.platform, forMojangManif
         }
     } else {
         // For comparison: normalize both Node.js and Mojang formats to same value
+        // Handle all possible formats: arm64, aarch64, x64, x86_64
         if (arch === 'aarch64') {
             return 'arm64' // Convert Mojang format to Node.js format
-        } else if (arch === 'x86_64' && (platform === 'darwin' || platform === 'linux')) {
-            return 'x64' // Convert Mojang format to Node.js format
+        } else if (arch === 'arm64') {
+            return 'arm64' // Already in Node.js format
+        } else if (arch === 'x86_64') {
+            // Mojang format for macOS/Linux x64
+            return 'x64' // Convert to Node.js format for comparison (works for all platforms)
+        } else if (arch === 'x64') {
+            // Could be Node.js format (Windows) or Mojang format (macOS/Linux)
+            // For comparison, we treat all x64 as the same
+            return 'x64'
         }
     }
     
@@ -83,7 +91,11 @@ function compareArchitecture(arch1, arch2, platform = process.platform) {
     // Normalize both to same format for comparison
     const norm1 = normalizeArchitecture(arch1, platform, false)
     const norm2 = normalizeArchitecture(arch2, platform, false)
-    return norm1 === norm2
+    const match = norm1 === norm2
+    if (platform === 'darwin' && process.arch === 'arm64') {
+        logger.debug(`[ProcessBuilder]: Architecture comparison: ${arch1} (normalized: ${norm1}) vs ${arch2} (normalized: ${norm2}) = ${match}`)
+    }
+    return match
 }
 
 /**
@@ -1231,7 +1243,68 @@ class ProcessBuilder {
                     const exclusionArr = lib.extract != null ? lib.extract.exclude : ['META-INF/']
                     // Normalize architecture for Mojang manifest format
                     const archStr = normalizeArchitecture(process.arch, process.platform, true)
-                    const artifact = lib.downloads.classifiers[lib.natives[getMojangOS()].replace('${arch}', archStr)]
+                    const nativeKey = lib.natives[getMojangOS()]
+                    if (!nativeKey) {
+                        continue // Skip if no native for this OS
+                    }
+                    const classifierKey = nativeKey.replace('${arch}', archStr)
+                    logger.debug(`[ProcessBuilder]: Pre-1.19 native: OS=${getMojangOS()}, process.arch=${process.arch}, normalized=${archStr}, classifierKey=${classifierKey}`)
+                    
+                    // Additional strict check for macOS arm64 to prevent x86_64 libraries
+                    if (process.platform === 'darwin' && process.arch === 'arm64') {
+                        // For macOS arm64, classifierKey must contain 'aarch64', not 'x86_64' or 'x64'
+                        if (classifierKey.includes('x86_64') || classifierKey.includes('x64')) {
+                            logger.debug(`[ProcessBuilder]: Pre-1.19: Skipping library ${lib.name} - x86_64/x64 classifier not compatible with arm64 Mac (classifierKey: ${classifierKey})`)
+                            continue
+                        }
+                        // Ensure we're using aarch64
+                        if (!classifierKey.includes('aarch64') && !classifierKey.includes('arm64')) {
+                            logger.warn(`[ProcessBuilder]: Pre-1.19: Warning - classifierKey ${classifierKey} may not be compatible with arm64 Mac`)
+                        }
+                    }
+                    
+                    const artifact = lib.downloads.classifiers[classifierKey]
+                    if (!artifact) {
+                        // Try alternative classifier keys for macOS arm64
+                        if (process.platform === 'darwin' && process.arch === 'arm64') {
+                            const altClassifierKey = nativeKey.replace('${arch}', 'aarch64')
+                            logger.debug(`[ProcessBuilder]: Pre-1.19: Trying alternative classifier key for arm64: ${altClassifierKey}`)
+                            const altArtifact = lib.downloads.classifiers[altClassifierKey]
+                            if (altArtifact) {
+                                logger.info(`[ProcessBuilder]: Pre-1.19: Using alternative classifier key ${altClassifierKey} for arm64 Mac`)
+                                // Use the alternative artifact
+                                const to = path.join(this.libPath, altArtifact.path)
+                                if (!fs.existsSync(to)) {
+                                    logger.warn(`[ProcessBuilder]: Pre-1.19: Artifact file not found: ${to}`)
+                                    continue
+                                }
+                                // Extract from alternative artifact
+                                let zip = new AdmZip(to)
+                                let zipEntries = zip.getEntries()
+                                for(let i=0; i<zipEntries.length; i++){
+                                    const fileName = zipEntries[i].entryName
+                                    let shouldExclude = false
+                                    exclusionArr.forEach(function(exclusion){
+                                        if(fileName.indexOf(exclusion) > -1){
+                                            shouldExclude = true
+                                        }
+                                    })
+                                    if(!shouldExclude){
+                                        const filePath = path.join(tempNativePath, fileName)
+                                        const fileData = zipEntries[i].getData()
+                                        extractPromises.push(
+                                            fs.promises.writeFile(filePath, fileData).catch(err => {
+                                                logger.error('Error while extracting native library:', err)
+                                            })
+                                        )
+                                    }
+                                }
+                                continue // Skip to next library
+                            }
+                        }
+                        logger.warn(`[ProcessBuilder]: No artifact found for classifier key: ${classifierKey}. Available keys: ${Object.keys(lib.downloads.classifiers || {}).join(', ')}`)
+                        continue
+                    }
 
                     // Location of native zip.
                     const to = path.join(this.libPath, artifact.path)
@@ -1269,14 +1342,47 @@ class ProcessBuilder {
                 else if(lib.name.includes('natives-')) {
 
                     const regexTest = nativesRegex.exec(lib.name)
-                    // const os = regexTest[1]
+                    if (!regexTest) {
+                        continue
+                    }
+                    const osFromName = regexTest[1] // e.g., 'macos', 'linux', 'windows'
                     const arch = regexTest[2] ?? 'x64'
+
+                    // First check if OS matches
+                    const mojangOS = getMojangOS()
+                    const osMatches = osFromName === mojangOS || 
+                        (osFromName === 'macos' && mojangOS === 'osx') ||
+                        (osFromName === 'osx' && mojangOS === 'macos')
+                    
+                    if (!osMatches) {
+                        logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - OS mismatch (${osFromName} vs ${mojangOS})`)
+                        continue
+                    }
 
                     // Compare architectures using normalized comparison
                     // This handles differences between Mojang format (aarch64) and Node.js format (arm64)
-                    if(!compareArchitecture(arch, process.arch, process.platform)) {
+                    const archMatch = compareArchitecture(arch, process.arch, process.platform)
+                    logger.debug(`[ProcessBuilder]: 1.19+ native check: lib.name=${lib.name}, OS=${osFromName}, extracted arch=${arch}, process.arch=${process.arch}, match=${archMatch}`)
+                    
+                    // Additional strict check for macOS arm64 to prevent x86_64 libraries
+                    if (process.platform === 'darwin' && process.arch === 'arm64') {
+                        // For macOS arm64, we must have aarch64 or arm64, never x86_64 or x64
+                        if (arch === 'x86_64' || arch === 'x64') {
+                            logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - x86_64/x64 not compatible with arm64 Mac`)
+                            continue
+                        }
+                        // For arm64 Mac, we need aarch64 in Mojang format
+                        if (arch !== 'aarch64' && arch !== 'arm64') {
+                            logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - unknown architecture ${arch} for arm64 Mac`)
+                            continue
+                        }
+                    }
+                    
+                    if(!archMatch) {
+                        logger.debug(`[ProcessBuilder]: Skipping library ${lib.name} - architecture mismatch (${arch} vs ${process.arch})`)
                         continue
                     }
+                    logger.info(`[ProcessBuilder]: Using library ${lib.name} for architecture ${arch} on ${process.platform} (${process.arch})`)
 
                     // Extract the native library.
                     const exclusionArr = lib.extract != null ? lib.extract.exclude : ['META-INF/', '.git', '.sha1']
