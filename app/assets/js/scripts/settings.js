@@ -9,7 +9,7 @@ var ipcRenderer = electron.ipcRenderer
 var shell = electron.shell
 var remote = require('@electron/remote')
 var isDev  = require('./assets/js/isdev')
-const Lang   = require('./assets/js/langloader')
+var Lang   = require('./assets/js/langloader')
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
 const { MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR } = require('./assets/js/ipcconstants')
