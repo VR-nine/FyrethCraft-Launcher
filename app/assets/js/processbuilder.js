@@ -29,6 +29,64 @@ function formatUUID(uuid) {
 }
 
 /**
+ * Normalize architecture string for Mojang manifest format.
+ * 
+ * Mojang uses different architecture names than Node.js:
+ * - Node.js: 'arm64' -> Mojang: 'aarch64' (macOS/Linux ARM)
+ * - Node.js: 'x64' -> Mojang: 'x64' (Windows) or 'x86_64' (macOS/Linux)
+ * 
+ * @param {string} arch - Architecture from process.arch
+ * @param {string} platform - Platform from process.platform
+ * @param {boolean} forMojangManifest - If true, return Mojang format; if false, return normalized for comparison
+ * @returns {string} Normalized architecture string
+ */
+function normalizeArchitecture(arch, platform = process.platform, forMojangManifest = true) {
+    // Normalize Node.js arch to standard format
+    let normalized = arch
+    
+    // Convert to Mojang manifest format if needed
+    if (forMojangManifest) {
+        if (platform === 'darwin' || platform === 'linux') {
+            // macOS and Linux use different naming
+            if (arch === 'arm64') {
+                return 'aarch64' // Mojang uses aarch64 for ARM
+            } else if (arch === 'x64') {
+                return 'x86_64' // Mojang uses x86_64 for Intel/AMD
+            }
+        } else if (platform === 'win32') {
+            // Windows uses x64 for both Node.js and Mojang
+            if (arch === 'x64') {
+                return 'x64'
+            }
+        }
+    } else {
+        // For comparison: normalize both Node.js and Mojang formats to same value
+        if (arch === 'aarch64') {
+            return 'arm64' // Convert Mojang format to Node.js format
+        } else if (arch === 'x86_64' && (platform === 'darwin' || platform === 'linux')) {
+            return 'x64' // Convert Mojang format to Node.js format
+        }
+    }
+    
+    return normalized
+}
+
+/**
+ * Compare two architecture strings, handling Mojang vs Node.js format differences.
+ * 
+ * @param {string} arch1 - First architecture (typically from manifest)
+ * @param {string} arch2 - Second architecture (typically from process.arch)
+ * @param {string} platform - Platform from process.platform
+ * @returns {boolean} True if architectures match
+ */
+function compareArchitecture(arch1, arch2, platform = process.platform) {
+    // Normalize both to same format for comparison
+    const norm1 = normalizeArchitecture(arch1, platform, false)
+    const norm2 = normalizeArchitecture(arch2, platform, false)
+    return norm1 === norm2
+}
+
+/**
  * Get the correct path to a resource file, handling both dev and production environments
  * @param {string} resourcePath - Path to the resource relative to app root
  * @returns {string} Full path to the resource
@@ -1171,7 +1229,9 @@ class ProcessBuilder {
                 if(lib.natives != null) {
                     // Extract the native library.
                     const exclusionArr = lib.extract != null ? lib.extract.exclude : ['META-INF/']
-                    const artifact = lib.downloads.classifiers[lib.natives[getMojangOS()].replace('${arch}', process.arch.replace('x', ''))]
+                    // Normalize architecture for Mojang manifest format
+                    const archStr = normalizeArchitecture(process.arch, process.platform, true)
+                    const artifact = lib.downloads.classifiers[lib.natives[getMojangOS()].replace('${arch}', archStr)]
 
                     // Location of native zip.
                     const to = path.join(this.libPath, artifact.path)
@@ -1212,7 +1272,9 @@ class ProcessBuilder {
                     // const os = regexTest[1]
                     const arch = regexTest[2] ?? 'x64'
 
-                    if(arch != process.arch) {
+                    // Compare architectures using normalized comparison
+                    // This handles differences between Mojang format (aarch64) and Node.js format (arm64)
+                    if(!compareArchitecture(arch, process.arch, process.platform)) {
                         continue
                     }
 
@@ -1275,13 +1337,36 @@ class ProcessBuilder {
             await Promise.all(extractPromises)
             logger.info(`[ProcessBuilder]: Extracted ${extractPromises.length} native library files to ${tempNativePath}`)
             
-            // On macOS, verify that LWJGL libraries are present
+            // On macOS, verify that LWJGL libraries are present and check architecture
             if(process.platform === 'darwin'){
                 const lwjglLibs = ['liblwjgl.dylib', 'liblwjgl_opengl.dylib', 'liblwjgl_glfw.dylib']
                 for(const lib of lwjglLibs){
                     const libPath = path.join(tempNativePath, lib)
                     if(!fs.existsSync(libPath)){
                         logger.warn(`[ProcessBuilder]: LWJGL library not found: ${lib} at ${libPath}`)
+                    } else {
+                        // Check library architecture on macOS
+                        try {
+                            const { execSync } = require('child_process')
+                            const fileInfo = execSync(`file "${libPath}"`, { encoding: 'utf8' })
+                            logger.debug(`[ProcessBuilder]: ${lib} architecture: ${fileInfo.trim()}`)
+                            
+                            // Verify it matches expected architecture
+                            // Check for architecture in file info (handles both arm64 and aarch64 naming)
+                            const expectedArch = process.arch
+                            const isArm64 = expectedArch === 'arm64'
+                            const isX64 = expectedArch === 'x64'
+                            
+                            if(isArm64 && !fileInfo.includes('arm64') && !fileInfo.includes('arm64e') && !fileInfo.includes('aarch64')) {
+                                logger.error(`[ProcessBuilder]: Architecture mismatch! Expected arm64/aarch64 but got different architecture for ${lib}`)
+                            } else if(isX64 && process.platform !== 'win32' && !fileInfo.includes('x86_64') && !fileInfo.includes('x64')) {
+                                logger.error(`[ProcessBuilder]: Architecture mismatch! Expected x86_64/x64 but got different architecture for ${lib}`)
+                            } else if(isX64 && process.platform === 'win32' && !fileInfo.includes('x64') && !fileInfo.includes('x86_64')) {
+                                logger.error(`[ProcessBuilder]: Architecture mismatch! Expected x64 but got different architecture for ${lib}`)
+                            }
+                        } catch(err) {
+                            logger.warn(`[ProcessBuilder]: Could not check architecture for ${lib}:`, err.message)
+                        }
                     }
                 }
             }
