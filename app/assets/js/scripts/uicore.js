@@ -128,7 +128,11 @@ function showUpdateUI(info){
         })
         toggleOverlay(true, true)*/
         switchView(getCurrentView(), VIEWS.settings, 500, 500, () => {
-            settingsNavItemListener(document.getElementById('settingsNavUpdate'), false)
+            if (typeof window !== 'undefined' && window.settingsNavItemListener) {
+                window.settingsNavItemListener(document.getElementById('settingsNavUpdate'), false)
+            } else if (typeof settingsNavItemListener === 'function') {
+                settingsNavItemListener(document.getElementById('settingsNavUpdate'), false)
+            }
         })
     }
 }

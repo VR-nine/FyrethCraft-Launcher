@@ -2909,19 +2909,25 @@ input:checked + .toggleSwitchSlider:before {
     cursor: pointer;
     visibility: hidden;
     opacity: 0;
-    width: 100px;
-    height: 15px;
+    min-width: 100px;
+    max-width: 300px;
+    width: max-content;
+    min-height: 15px;
     background-color: rgb(0, 0, 0);
     color: #fff;
     text-align: center;
     border-radius: 4px;
-    padding: 2px;
+    padding: 6px 8px;
     position: absolute;
     z-index: 1;
     top: 115%;
-    left: -17.5px;
+    left: 50%;
+    transform: translateX(-50%);
     font-weight: bold;
     font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    word-wrap: break-word;
     transition: visibility 0s linear 0.25s, opacity 0.25s ease;
 }
 #updateAvailableTooltip::after {

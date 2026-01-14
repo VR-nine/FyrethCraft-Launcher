@@ -229,9 +229,18 @@ document.getElementById('settingsMediaButton').onclick = async e => {
 
 // Bind avatar overlay button.
 document.getElementById('avatarOverlay').onclick = async e => {
-    await prepareSettings()
+    // prepareSettings may not be loaded yet, check if available
+    if (typeof window !== 'undefined' && window.prepareSettings) {
+        await window.prepareSettings(true)
+    } else if (typeof prepareSettings === 'function') {
+        await prepareSettings(true)
+    }
     switchView(getCurrentView(), VIEWS.settings, 500, 500, () => {
-        settingsNavItemListener(document.getElementById('settingsNavAccount'), false)
+        if (typeof window !== 'undefined' && window.settingsNavItemListener) {
+            window.settingsNavItemListener(document.getElementById('settingsNavAccount'), false)
+        } else if (typeof settingsNavItemListener === 'function') {
+            settingsNavItemListener(document.getElementById('settingsNavAccount'), false)
+        }
     })
 }
 

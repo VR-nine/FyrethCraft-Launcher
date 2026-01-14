@@ -383,6 +383,11 @@ function settingsNavItemListener(ele, fade = true){
     }
 }
 
+// Make function globally available
+if (typeof window !== 'undefined') {
+    window.settingsNavItemListener = settingsNavItemListener
+}
+
 const settingsNavDone = document.getElementById('settingsNavDone')
 
 /**
