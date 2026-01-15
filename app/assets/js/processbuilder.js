@@ -36,24 +36,48 @@ function formatUUID(uuid) {
  * @returns {string} System architecture (arm64, x64, etc.)
  */
 function getSystemArchitecture() {
-    // On macOS, use uname -m as the primary source because os.arch() and process.arch
-    // can both return x64 if Electron/Node.js is running under Rosetta
+    // On macOS, we need to detect the actual system architecture, not the process architecture
+    // When Electron runs under Rosetta, both uname -m and os.arch() can return x64/x86_64
     if (process.platform === 'darwin') {
         try {
-            const unameResult = child_process.execSync('uname -m', { encoding: 'utf8', timeout: 1000 }).trim()
-            logger.debug(`[ProcessBuilder]: macOS architecture check: uname -m=${unameResult}, os.arch()=${os.arch()}, process.arch=${process.arch}`)
+            // Method 1: Check if running under Rosetta translation
+            // sysctl.proc_translated returns 1 if running under Rosetta (on Apple Silicon), 0 if native
+            const procTranslated = child_process.execSync('sysctl -n sysctl.proc_translated', { encoding: 'utf8', timeout: 1000 }).trim()
             
-            // uname -m returns 'arm64' for Apple Silicon, 'x86_64' for Intel
+            if (procTranslated === '1') {
+                // Running under Rosetta means we're on Apple Silicon (arm64)
+                logger.debug(`[ProcessBuilder]: macOS architecture check: Running under Rosetta (proc_translated=1), system is arm64`)
+                return 'arm64'
+            }
+            
+            // Method 2: Use 'arch' command which returns the actual system architecture
+            // This works even when the current process is running under Rosetta
+            try {
+                const archResult = child_process.execSync('arch', { encoding: 'utf8', timeout: 1000 }).trim()
+                logger.debug(`[ProcessBuilder]: macOS architecture check: arch=${archResult}, proc_translated=${procTranslated}, uname -m=${child_process.execSync('uname -m', { encoding: 'utf8', timeout: 1000 }).trim()}, os.arch()=${os.arch()}, process.arch=${process.arch}`)
+                
+                if (archResult === 'arm64') {
+                    return 'arm64'
+                } else if (archResult === 'i386' || archResult === 'x86_64') {
+                    return 'x64'
+                }
+            } catch (archErr) {
+                // If arch fails, fall through to uname
+            }
+            
+            // Method 3: Fallback to uname -m (may return x86_64 under Rosetta)
+            const unameResult = child_process.execSync('uname -m', { encoding: 'utf8', timeout: 1000 }).trim()
+            logger.debug(`[ProcessBuilder]: macOS architecture check (uname fallback): uname -m=${unameResult}, os.arch()=${os.arch()}, process.arch=${process.arch}`)
+            
             if (unameResult === 'arm64') {
                 return 'arm64'
             } else if (unameResult === 'x86_64') {
+                // If uname returns x86_64 but proc_translated was 0, it's a real Intel Mac
                 return 'x64'
             }
-            // If uname returns something unexpected, log and fall through
-            logger.warn(`[ProcessBuilder]: Unexpected uname -m result: ${unameResult}, falling back to os.arch()`)
         } catch (err) {
-            // If uname fails, log and fall back to os.arch()
-            logger.warn(`[ProcessBuilder]: Could not check uname -m: ${err.message}, falling back to os.arch()=${os.arch()}`)
+            // If all checks fail, log and fall back to os.arch()
+            logger.warn(`[ProcessBuilder]: Could not check macOS architecture: ${err.message}, falling back to os.arch()=${os.arch()}`)
         }
     }
     

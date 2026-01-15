@@ -2,14 +2,10 @@
 const fs     = require('fs-extra')
 const os     = require('os')
 const semver = require('semver')
-// Use electron module - each script has its own scope in Electron
-// but we use var to avoid potential "already declared" errors
-var electron = require('electron')
-var ipcRenderer = electron.ipcRenderer
-var shell = electron.shell
-var remote = require('@electron/remote')
-var isDev  = require('./assets/js/isdev')
-var Lang   = require('./assets/js/langloader')
+// Electron APIs are already declared in uicore.js (loaded before this script in app.ejs)
+// In Electron with contextIsolation: false, all scripts share the same global scope
+// We reference the already-declared variables directly
+/* global ipcRenderer, shell, remote, isDev, Lang */
 
 const DropinModUtil  = require('./assets/js/dropinmodutil')
 const { MSFT_OPCODE, MSFT_REPLY_TYPE, MSFT_ERROR } = require('./assets/js/ipcconstants')

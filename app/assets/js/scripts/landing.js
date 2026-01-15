@@ -1263,39 +1263,41 @@ async function loadNews(){
     const promise = new Promise((resolve, reject) => {
 
         const newsFeed = distroData.rawDistribution.rss
+        loggerLanding.debug(`Loading RSS feed from: ${newsFeed}`)
         const newsHost = new URL(newsFeed).origin + '/'
         $.ajax({
             url: newsFeed,
+            timeout: 2500,
             success: (data) => {
-                const items = $(data).find('item')
-                const articles = []
+                try {
+                    const items = $(data).find('item')
+                    const articles = []
 
-                for(let i=0; i<items.length; i++){
-                // JQuery Element
-                    const el = $(items[i])
+                    for(let i=0; i<items.length; i++){
+                        // JQuery Element
+                        const el = $(items[i])
 
-                    // Resolve date.
-                    const date = new Date(el.find('pubDate').text()).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric'})
+                        // Resolve date.
+                        const date = new Date(el.find('pubDate').text()).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric'})
 
-                    // Resolve comments.
-                    let comments = el.find('slash\\:comments').text() || '0'
-                    comments = comments + ' Comment' + (comments === '1' ? '' : 's')
+                        // Resolve comments.
+                        let comments = el.find('slash\\:comments').text() || '0'
+                        comments = comments + ' Comment' + (comments === '1' ? '' : 's')
 
-                    // Fix relative links in content.
-                    let content = el.find('content\\:encoded').text()
-                    let regex = /src="(?!http:\/\/|https:\/\/)(.+?)"/g
-                    let matches
-                    while((matches = regex.exec(content))){
-                        content = content.replace(`"${matches[1]}"`, `"${newsHost + matches[1]}"`)
-                    }
+                        // Fix relative links in content.
+                        let content = el.find('content\\:encoded').text()
+                        let regex = /src="(?!http:\/\/|https:\/\/)(.+?)"/g
+                        let matches
+                        while((matches = regex.exec(content))){
+                            content = content.replace(`"${matches[1]}"`, `"${newsHost + matches[1]}"`)
+                        }
 
-                    let link   = el.find('link').text()
-                    let title  = el.find('title').text()
-                    let author = el.find('dc\\:creator').text()
+                        let link   = el.find('link').text()
+                        let title  = el.find('title').text()
+                        let author = el.find('dc\\:creator').text()
 
-                    // Generate article.
-                    articles.push(
-                        {
+                        // Generate article.
+                        articles.push({
                             link,
                             title,
                             date,
@@ -1303,18 +1305,25 @@ async function loadNews(){
                             content,
                             comments,
                             commentsLink: link + '#comments'
-                        }
-                    )
+                        })
+                    }
+                    loggerLanding.debug(`Successfully parsed ${articles.length} articles from RSS feed`)
+                    resolve({
+                        articles
+                    })
+                } catch (parseError) {
+                    loggerLanding.error('Error parsing RSS feed:', parseError)
+                    resolve({
+                        articles: null
+                    })
                 }
-                resolve({
-                    articles
-                })
             },
-            timeout: 2500
-        }).catch(err => {
-            resolve({
-                articles: null
-            })
+            error: (jqXHR, textStatus, errorThrown) => {
+                loggerLanding.error(`Error loading RSS feed: ${textStatus} - ${errorThrown}`)
+                resolve({
+                    articles: null
+                })
+            }
         })
     })
 
