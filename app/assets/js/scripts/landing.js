@@ -294,6 +294,60 @@ function updateSelectedServer(serv){
     }
     // Only enable button if server is selected AND game is not running
     setLaunchEnabled(serv != null && !isGameRunning())
+    checkAndShowShopButton(serv)
+}
+
+/**
+ * Check if server shop URL (https://hostname/<language>/shop) is reachable; show shop button only if valid.
+ * Tries hostname first, then base domain (e.g. mc.fyrethcraft.net → fyrethcraft.net) if shop is on main site.
+ * @param {Object|null} serv Selected server (with hostname) or null.
+ */
+let _shopCheckInProgress = false
+async function checkAndShowShopButton(serv){
+    if(_shopCheckInProgress) return
+    const shopContainer = document.getElementById('shopButtonContainer')
+    const shopLink = document.getElementById('shopButton')
+    if(!shopContainer || !shopLink) return
+    if(!serv || !serv.hostname) {
+        shopContainer.style.display = 'none'
+        return
+    }
+    _shopCheckInProgress = true
+    const LangLoader = require('./assets/js/langloader')
+    const language = LangLoader.getEffectiveLanguage()
+    const langCode = language.split('_')[0].toLowerCase()
+    const parts = serv.hostname.split('.')
+    const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : serv.hostname
+    const candidates = [
+        `https://${serv.hostname}/${langCode}/shop`,
+        baseDomain !== serv.hostname ? `https://${baseDomain}/${langCode}/shop` : null
+    ].filter(Boolean)
+    try {
+        const { ipcRenderer } = require('electron')
+        let shopUrl = null
+        for(const url of candidates) {
+            const valid = await new Promise((resolve) => {
+                ipcRenderer.once('checkUrlResult', (e, data) => resolve(data?.valid === true))
+                ipcRenderer.send('checkUrl', url)
+            })
+            if(valid) {
+                shopUrl = url
+                break
+            }
+        }
+        if(shopUrl) {
+            shopLink.href = shopUrl
+            const shopTooltipEl = document.getElementById('shopTooltip')
+            if(shopTooltipEl) shopTooltipEl.textContent = LangLoader.queryEJS('landing.shopTooltip')
+            shopContainer.style.display = 'flex'
+        } else {
+            shopContainer.style.display = 'none'
+        }
+    } catch(_err) {
+        shopContainer.style.display = 'none'
+    } finally {
+        _shopCheckInProgress = false
+    }
 }
 
 // Update window function now that it's defined
@@ -976,11 +1030,11 @@ function slide_(up){
                 newsBtn.style.transition = 'none'
             }
             newsGlideCount--
-        }, 2000)
+        }, 670)
     } else {
         setTimeout(() => {
             newsGlideCount--
-        }, 2000)
+        }, 670)
         landingContainer.style.background = null
         lCLCenter.style.transition = null
         newsBtn.style.transition = null
@@ -1137,7 +1191,8 @@ async function initNews(){
         ConfigManager.setNewsCache({
             date: null,
             content: null,
-            dismissed: false
+            dismissed: false,
+            count: 0
         })
         ConfigManager.save()
 
@@ -1148,44 +1203,22 @@ async function initNews(){
         setNewsLoading(false)
 
         const lN = newsArr[0]
+        const newDate = new Date(lN.date)
         const cached = ConfigManager.getNewsCache()
-        let newHash = await digestMessage(lN.content)
-        let newDate = new Date(lN.date)
-        let isNew = false
+        const savedCount = cached.count != null ? cached.count : 0
+        const currentCount = newsArr.length
 
-        if(cached.date != null && cached.content != null){
-
-            if(new Date(cached.date) >= newDate){
-
-                // Compare Content
-                if(cached.content !== newHash){
-                    isNew = true
-                    showNewsAlert()
-                } else {
-                    if(!cached.dismissed){
-                        isNew = true
-                        showNewsAlert()
-                    }
-                }
-
-            } else {
-                isNew = true
-                showNewsAlert()
-            }
-
-        } else {
-            isNew = true
+        if (currentCount > savedCount) {
             showNewsAlert()
         }
 
-        if(isNew){
-            ConfigManager.setNewsCache({
-                date: newDate.getTime(),
-                content: newHash,
-                dismissed: false
-            })
-            ConfigManager.save()
-        }
+        ConfigManager.setNewsCache({
+            date: newDate.getTime(),
+            content: await digestMessage(lN.content),
+            dismissed: false,
+            count: currentCount
+        })
+        ConfigManager.save()
 
         renderNewsList(newsArr)
         await $('#newsErrorContainer').fadeOut(250).promise()

@@ -101,7 +101,8 @@ const DEFAULT_CONFIG = {
     newsCache: {
         date: null,
         content: null,
-        dismissed: false
+        dismissed: false,
+        count: null
     },
     clientToken: null,
     selectedServer: null, // Resolved

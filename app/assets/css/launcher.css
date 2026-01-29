@@ -2448,7 +2448,7 @@ input:checked + .toggleSwitchSlider:before {
 #landingContainer {
     height: 100%;
     position: relative;
-    transition: background 2s ease;
+    transition: background 0.67s ease;
     overflow-y: hidden;
 }
 
@@ -2467,7 +2467,7 @@ input:checked + .toggleSwitchSlider:before {
 /* Upper content container. */
 #landingContainer > #upper {
     position: relative;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     top: 0px;
     height: 77%;
     display: flex;
@@ -2487,6 +2487,7 @@ input:checked + .toggleSwitchSlider:before {
     display: inline-flex;
     width: 15%;
     height: 100%;
+    overflow: visible;
 }
 
 /* Lower content container. */
@@ -2497,7 +2498,7 @@ input:checked + .toggleSwitchSlider:before {
 }
 #landingContainer > #lower > #left {
     position: relative;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     top: 0px;
     height: 100%;
     width: 33%;
@@ -2513,7 +2514,7 @@ input:checked + .toggleSwitchSlider:before {
 }
 #landingContainer > #lower > #center {
     position: relative;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     top: 0px;
     height: 100%;
     width: 34%;
@@ -2523,12 +2524,12 @@ input:checked + .toggleSwitchSlider:before {
 #newsButtonContainer {
     position: relative;
     z-index: 500;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     top: 10px;
 }
 #landingContainer > #lower > #right {
     position: relative;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     top: 0px;
     height: 100%;
     width: 33%;
@@ -2547,7 +2548,7 @@ input:checked + .toggleSwitchSlider:before {
     top: 100%;
     height: 100%;
     width: 100%;
-    transition: top 2s ease;
+    transition: top 0.67s ease;
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -3030,6 +3031,7 @@ input:checked + .toggleSwitchSlider:before {
     top: 50px;
     align-items: flex-start;
     height: calc(100% - 50px);
+    overflow: visible;
 }
 
 /* Right hand user content container. */
@@ -3119,14 +3121,19 @@ input:checked + .toggleSwitchSlider:before {
     flex-direction: column;
     margin-top: 25px;
     height: calc(100% - 95px);
-    width: 70px;
+    width: 72px;
+    min-width: 72px;
     align-items: center;
+    overflow: visible;
 }
 
-/* Social Media Icon division containers. */
+/* Social Media Icon division containers — одинаковая ширина, иконки в одну колонку. */
 #internalMedia, #externalMedia {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    width: 72px;
+    overflow: visible;
 }
 
 /* Container object which wraps an icon to ensure fluid transitions. */
@@ -3134,7 +3141,22 @@ input:checked + .toggleSwitchSlider:before {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 27px;
+    text-align: center;
+    height: 40px;
+    width: 72px;
+    min-width: 72px;
+    padding: 0 2px;
+    overflow: visible;
+
+    svg {
+        overflow: visible;
+    }
+}
+/* Широкая иконка (ссылка) — та же ширина, только больше padding чтобы не обрезалась. */
+.mediaContainer--wide {
+    width: 72px;
+    min-width: 72px;
+    padding: 0 4px;
 }
 
 /* Divider bar between the external and internal icons. */
@@ -3145,24 +3167,62 @@ input:checked + .toggleSwitchSlider:before {
     margin: 10px 0px;
 }
 
-/* Social media icon shared styles. */
+/* Social media icon shared styles (1.5–2× size). */
 .mediaSVG {
     fill: #ffffff;
-    height: 12px;
+    height: 20px;
+    width: auto;
+    max-width: 100%;
+    flex-shrink: 0;
     transition: 0.25s ease;
     cursor: pointer;
-    height: 12px;
-    width: 25px;
 }
 .mediaSVG:hover,
 .mediaURL:focus .mediaSVG,
 .mediaSVG:active {
-    height: 20px;
+    height: 28px;
+    width: auto;
 }
 
-/* Social media URL shared styles. */
+/* Social media URL shared styles (no focus outline/ring). */
 .mediaURL {
-    outline: none;
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+}
+.mediaURL:focus,
+.mediaURL:focus-visible,
+.mediaURL:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+.mediaURL::-moz-focus-inner {
+    border: none;
+    padding: 0;
+}
+/* Убираем обводку фокуса у кнопки магазина (Chromium/Electron). */
+#shopButton,
+#shopButton:focus,
+#shopButton:focus-visible,
+#shopButton:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+#shopButton::-moz-focus-inner {
+    border: none;
+    padding: 0;
+}
+/* Любой фокус внутри блока медиа — без кольца. */
+#externalMedia *:focus,
+#internalMedia *:focus {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 /* Internal media button shared styles. */
@@ -3182,7 +3242,7 @@ input:checked + .toggleSwitchSlider:before {
 /* Settings icon colors. */
 #settingsSVG {
     stroke: #ffffff;
-    height: 15px;
+    height: 20px;
 }
 .mediaButton:hover #settingsSVG,
 .mediaButton:focus #settingsSVG,
@@ -3222,6 +3282,45 @@ input:checked + .toggleSwitchSlider:before {
     visibility: visible;
     opacity: 1;
     transition-delay:0s;
+}
+
+/* Shop tooltip styles. */
+#shopButtonContainer {
+    position: relative;
+}
+#shopTooltip {
+    visibility: hidden;
+    opacity: 0;
+    width: 75px;
+    min-height: 20px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.75);
+    color: #ffffff;
+    text-align: center;
+    border-radius: 4px;
+    position: absolute;
+    z-index: 1;
+    right: 130%;
+    font-size: 12px;
+    line-height: 20px;
+    transition: visibility 0s linear 0.25s, opacity 0.25s ease;
+}
+#shopTooltip::after {
+    content: " ";
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    margin-top: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent transparent rgba(0, 0, 0, 0.75);
+}
+#shopButton:hover #shopTooltip,
+#shopButton:focus #shopTooltip,
+#shopButton:active #shopTooltip {
+    visibility: visible;
+    opacity: 1;
+    transition-delay: 0s;
 }
 
 /* X icon colors. */
@@ -3459,7 +3558,7 @@ input:checked + .toggleSwitchSlider:before {
     height: 5px;
     position: absolute;
     border-radius: 50%;
-    background: red;
+    background: #e6c200;
     right: -1px;
     top: 50%;
 }

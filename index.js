@@ -122,6 +122,61 @@ ipcMain.handle(SHELL_OPCODE.TRASH_ITEM, async (event, ...args) => {
     }
 })
 
+// Check if URL is reachable (shop button). Uses on/reply to avoid invoke handler registration issues.
+// Reply only once per request (clear timeout on response so timeout cannot overwrite success).
+ipcMain.on('checkUrl', (event, urlStr) => {
+    const http = require('http')
+    const https = require('https')
+    const MAX_REDIRECTS = 5
+    let currentUrl = urlStr
+    let replied = false
+    const replyOnce = (valid) => {
+        if (replied) return
+        replied = true
+        event.reply('checkUrlResult', { valid })
+    }
+    const doRequest = (attempt) => {
+        try {
+            const u = new URL(currentUrl)
+            if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+                replyOnce(false)
+                return
+            }
+            const lib = u.protocol === 'https:' ? https : http
+            const req = lib.request(currentUrl, { method: 'GET' }, (res) => {
+                if (replied) return
+                if (res.statusCode >= 200 && res.statusCode < 400) {
+                    replyOnce(true)
+                    return
+                }
+                if (res.statusCode >= 301 && res.statusCode <= 302 && res.headers.location && attempt < MAX_REDIRECTS) {
+                    const loc = res.headers.location
+                    currentUrl = loc.startsWith('http') ? loc : new URL(loc, currentUrl).href
+                    doRequest(attempt + 1)
+                    return
+                }
+                replyOnce(false)
+            })
+            const timeoutId = setTimeout(() => {
+                if (replied) return
+                req.destroy()
+                replyOnce(false)
+            }, 5000)
+            req.on('error', () => {
+                clearTimeout(timeoutId)
+                if (replied) return
+                replyOnce(false)
+            })
+            req.on('close', () => { clearTimeout(timeoutId) })
+            req.end()
+        } catch (e) {
+            if (replied) return
+            replyOnce(false)
+        }
+    }
+    doRequest(0)
+})
+
 // Disable hardware acceleration.
 // https://electronjs.org/docs/tutorial/offscreen-rendering
 app.disableHardwareAcceleration()
