@@ -359,7 +359,7 @@ const refreshMojangStatuses = async function(){
         const service = statuses[i]
 
         const tooltipHTML = `<div class="mojangStatusContainer">
-            <span class="mojangStatusIcon" style="color: ${MojangRestAPI.statusToHex(service.status)};">&#8226;</span>
+            <span class="mojangStatusIcon" style="color: ${statusToHex(service.status)};">&#8226;</span>
             <span class="mojangStatusName">${service.name}</span>
         </div>`
         if(service.essential){
@@ -391,21 +391,32 @@ const refreshMojangStatuses = async function(){
 
     document.getElementById('mojangStatusEssentialContainer').innerHTML = tooltipEssentialHTML
     document.getElementById('mojangStatusNonEssentialContainer').innerHTML = tooltipNonEssentialHTML
-    document.getElementById('mojang_status_icon').style.color = MojangRestAPI.statusToHex(status)
+    document.getElementById('mojang_status_icon').style.color = statusToHex(status)
+}
+
+/** Unified status color (server + Mojang) so green is the same everywhere. */
+const STATUS_HEX = {
+    green: '#4CAF50',
+    online: '#4CAF50',
+    yellow: '#eac918',
+    red: '#c32625',
+    grey: '#848484',
+    offline: '#848484'
+}
+
+function statusToHex(status) {
+    if(!status) return STATUS_HEX.offline
+    const key = status.toLowerCase()
+    return STATUS_HEX[key] ?? STATUS_HEX.offline
 }
 
 /**
  * Converts server status to hex color code.
- *
- * @param {string} status Status string ('online' or 'offline')
+ * @param {string} status 'online' | 'offline'
  * @returns {string} Hex color code
  */
 function serverStatusToHex(status) {
-    const statusColors = {
-        'online': '#4CAF50',  // Green
-        'offline': '#848484'  // Grey (same as default mojang status)
-    }
-    return statusColors[status] || statusColors['offline']
+    return statusToHex(status)
 }
 
 const refreshServerStatus = async (fade = false) => {
@@ -925,14 +936,9 @@ async function dlAsync(login = true) {
  */
 
 // DOM Cache
-const newsContent                   = document.getElementById('newsContent')
-const newsArticleTitle              = document.getElementById('newsArticleTitle')
-const newsArticleDate               = document.getElementById('newsArticleDate')
-const newsArticleAuthor             = document.getElementById('newsArticleAuthor')
-const newsArticleComments           = document.getElementById('newsArticleComments')
-const newsNavigationStatus          = document.getElementById('newsNavigationStatus')
-const newsArticleContentScrollable  = document.getElementById('newsArticleContentScrollable')
-const nELoadSpan                    = document.getElementById('nELoadSpan')
+const newsContent    = document.getElementById('newsContent')
+const newsList       = document.getElementById('newsList')
+const nELoadSpan     = document.getElementById('nELoadSpan')
 
 // News slide caches.
 let newsActive = false
@@ -948,7 +954,7 @@ function slide_(up){
     const lCLLeft = document.querySelector('#landingContainer > #lower > #left')
     const lCLCenter = document.querySelector('#landingContainer > #lower > #center')
     const lCLRight = document.querySelector('#landingContainer > #lower > #right')
-    const newsBtn = document.querySelector('#landingContainer > #lower > #center #content')
+    const newsBtn = document.getElementById('newsButtonContainer')
     const landingContainer = document.getElementById('landingContainer')
     const newsContainer = document.querySelector('#landingContainer > #newsContainer')
 
@@ -1007,6 +1013,12 @@ document.getElementById('newsButton').onclick = () => {
     newsActive = !newsActive
 }
 
+// Show news button (container is hidden by default in HTML). Always visible; click loads RSS or shows error if no feed.
+;(function(){
+    const newsBtnContainer = document.getElementById('newsButtonContainer')
+    if(newsBtnContainer) newsBtnContainer.style.display = 'block'
+})()
+
 // Array to store article meta.
 let newsArr = null
 
@@ -1051,14 +1063,6 @@ newsErrorRetry.onclick = () => {
         initNews()
         $('#newsErrorLoading').fadeIn(250)
     })
-}
-
-newsArticleContentScrollable.onscroll = (e) => {
-    if(e.target.scrollTop > Number.parseFloat($('.newsArticleSpacerTop').css('height'))){
-        newsContent.setAttribute('scrolled', '')
-    } else {
-        newsContent.removeAttribute('scrolled')
-    }
 }
 
 /**
@@ -1183,70 +1187,70 @@ async function initNews(){
             ConfigManager.save()
         }
 
-        const switchHandler = (forward) => {
-            let cArt = parseInt(newsContent.getAttribute('article'))
-            let nxtArt = forward ? (cArt >= newsArr.length-1 ? 0 : cArt + 1) : (cArt <= 0 ? newsArr.length-1 : cArt - 1)
-
-            displayArticle(newsArr[nxtArt], nxtArt+1)
-        }
-
-        document.getElementById('newsNavigateRight').onclick = () => { switchHandler(true) }
-        document.getElementById('newsNavigateLeft').onclick = () => { switchHandler(false) }
+        renderNewsList(newsArr)
         await $('#newsErrorContainer').fadeOut(250).promise()
-        displayArticle(newsArr[0], 1)
         await $('#newsContent').fadeIn(250).promise()
     }
-
-
 }
 
 /**
- * Add keyboard controls to the news UI. Left and right arrows toggle
- * between articles. If you are on the landing page, the up arrow will
- * open the news UI.
+ * Strip HTML tags from string.
+ * @param {string} str String that may contain HTML.
+ * @returns {string} Plain text.
+ */
+function stripHtml(str){
+    if(!str) return ''
+    const div = document.createElement('div')
+    div.innerHTML = str
+    return (div.textContent || div.innerText || '').trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * Render a list of news articles (title, description, date, author) into the news list.
+ * @param {Array.<Object>} articles Array of article objects with link, title, date, author, description.
+ */
+function renderNewsList(articles){
+    if(!newsList || !Array.isArray(articles) || articles.length === 0) return
+    const maxItems = 25
+    const items = articles.slice(0, maxItems)
+    const hrefEsc = (url) => {
+        if(!url || url === '#') return '#'
+        return String(url).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+    newsList.innerHTML = items.map(a => {
+        const title = escapeHtml(a.title || '')
+        const link = hrefEsc(a.link || '#')
+        const date = escapeHtml(a.date || '')
+        const author = escapeHtml(a.author ? `by ${a.author}` : '')
+        const description = escapeHtml((a.description || '').trim())
+        const descBlock = description ? `<div class="news-list-desc">${description}</div>` : ''
+        return `<div class="news-list-item">
+            <a class="news-list-item-link" href="${link}" target="_blank" rel="noopener noreferrer">
+                <span class="news-list-title">${title}</span>
+                ${descBlock}
+                <div class="news-list-meta">
+                    <span class="news-list-date">${date}</span>
+                    <span class="news-list-author">${author}</span>
+                </div>
+            </a>
+        </div>`
+    }).join('')
+}
+
+function escapeHtml(str){
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+}
+
+/**
+ * Add keyboard control: up arrow on landing opens the news UI.
  */
 document.addEventListener('keydown', (e) => {
-    if(newsActive){
-        if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
-            document.getElementById(e.key === 'ArrowRight' ? 'newsNavigateRight' : 'newsNavigateLeft').click()
-        }
-        // Interferes with scrolling an article using the down arrow.
-        // Not sure of a straight forward solution at this point.
-        // if(e.key === 'ArrowDown'){
-        //     document.getElementById('newsButton').click()
-        // }
-    } else {
-        if(getCurrentView() === VIEWS.landing){
-            if(e.key === 'ArrowUp'){
-                document.getElementById('newsButton').click()
-            }
-        }
+    if(!newsActive && getCurrentView() === VIEWS.landing && e.key === 'ArrowUp'){
+        document.getElementById('newsButton').click()
     }
 })
-
-/**
- * Display a news article on the UI.
- *
- * @param {Object} articleObject The article meta object.
- * @param {number} index The article index.
- */
-function displayArticle(articleObject, index){
-    newsArticleTitle.innerHTML = articleObject.title
-    newsArticleTitle.href = articleObject.link
-    newsArticleAuthor.innerHTML = 'by ' + articleObject.author
-    newsArticleDate.innerHTML = articleObject.date
-    newsArticleComments.innerHTML = articleObject.comments
-    newsArticleComments.href = articleObject.commentsLink
-    newsArticleContentScrollable.innerHTML = '<div id="newsArticleContentWrapper"><div class="newsArticleSpacerTop"></div>' + articleObject.content + '<div class="newsArticleSpacerBot"></div></div>'
-    Array.from(newsArticleContentScrollable.getElementsByClassName('bbCodeSpoilerButton')).forEach(v => {
-        v.onclick = () => {
-            const text = v.parentElement.getElementsByClassName('bbCodeSpoilerText')[0]
-            text.style.display = text.style.display === 'block' ? 'none' : 'block'
-        }
-    })
-    newsNavigationStatus.innerHTML = Lang.query('ejs.landing.newsNavigationStatus', {currentPage: index, totalPages: newsArr.length})
-    newsContent.setAttribute('article', index-1)
-}
 
 /**
  * Load news information from the RSS feed specified in the
@@ -1261,8 +1265,12 @@ async function loadNews(){
     }
 
     const promise = new Promise((resolve, reject) => {
-
-        const newsFeed = distroData.rawDistribution.rss
+        const LangLoader = require('./assets/js/langloader')
+        let newsFeed = distroData.rawDistribution.rss
+        const language = LangLoader.getEffectiveLanguage()
+        const langCode = language.split('_')[0].toLowerCase()
+        const separator = newsFeed.indexOf('?') !== -1 ? '&' : '?'
+        newsFeed = `${newsFeed}${separator}lang=${encodeURIComponent(langCode)}`
         loggerLanding.debug(`Loading RSS feed from: ${newsFeed}`)
         const newsHost = new URL(newsFeed).origin + '/'
         $.ajax({
@@ -1272,13 +1280,14 @@ async function loadNews(){
                 try {
                     const items = $(data).find('item')
                     const articles = []
+                    const dateLocale = language.replace('_', '-')
 
                     for(let i=0; i<items.length; i++){
                         // JQuery Element
                         const el = $(items[i])
 
-                        // Resolve date.
-                        const date = new Date(el.find('pubDate').text()).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric'})
+                        // Resolve date (localized).
+                        const date = new Date(el.find('pubDate').text()).toLocaleDateString(dateLocale, {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: 'numeric'})
 
                         // Resolve comments.
                         let comments = el.find('slash\\:comments').text() || '0'
@@ -1292,9 +1301,15 @@ async function loadNews(){
                             content = content.replace(`"${matches[1]}"`, `"${newsHost + matches[1]}"`)
                         }
 
-                        let link   = el.find('link').text()
+                        const linkEl = el.find('link').first()
+                        let link   = (linkEl.attr('href') || linkEl.text() || '').trim()
                         let title  = el.find('title').text()
                         let author = el.find('dc\\:creator').text()
+                        let description = stripHtml(el.find('description').text() || '')
+                        if(!description && content) {
+                            description = stripHtml(content).trim().slice(0, 200)
+                            if(stripHtml(content).length > 200) description += '…'
+                        }
 
                         // Generate article.
                         articles.push({
@@ -1302,6 +1317,7 @@ async function loadNews(){
                             title,
                             date,
                             author,
+                            description,
                             content,
                             comments,
                             commentsLink: link + '#comments'

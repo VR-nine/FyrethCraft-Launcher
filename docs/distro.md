@@ -72,7 +72,7 @@ Global settings for [Discord Rich Presence](https://discordapp.com/developers/do
 
 ### `DistroIndex.rss: string/url`
 
-A URL to a RSS feed. Used for loading news.
+A URL to a RSS feed. Used for loading news. The launcher always appends a `lang` query parameter (e.g. `?lang=en`, `?lang=ru` or `&lang=ru`) based on the effective language (user setting or auto-detected), so the server can return a localized feed.
 
 ---
 

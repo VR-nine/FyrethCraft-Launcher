@@ -59,6 +59,20 @@ exports.setupLanguage = function(){
     exports.loadLanguage('_custom')
 }
 
+/**
+ * Returns the effective language (user setting or auto-detected). Same logic as setupLanguage.
+ * @returns {string} Locale id, e.g. 'en_US', 'ru_RU'.
+ */
+exports.getEffectiveLanguage = function(){
+    const ConfigManager = require('./configmanager')
+    let userLanguage = null
+    if(ConfigManager.isLoaded()) {
+        userLanguage = ConfigManager.getLanguage()
+    }
+    const systemLang = detectSystemLanguage()
+    return userLanguage || systemLang
+}
+
 function detectSystemLanguage(){
     let lang = 'en_US'
     
